@@ -50,3 +50,28 @@ Behaviour the UI side should know (the mock differs in places):
 - **Passport.** `changesSince` is the date of the previous prescription. A medicine parked with "ask the doctor" stays in `changes` as `unconfirmed`. Current medicines are ordered: the visit's prescriber first, then other prescribers by name, then medicines with no prescriber.
 
 Open point: nothing in overview section 9 creates an `unclear_extraction` item, so the rules never open one. They can be resolved if something else creates them.
+
+## Phase 3: real services (2026-11-14)
+
+`createRealServices()` now implements profiles, medicines, documents, prescriptions, review, visits, settings and `subscribe`. Reading, sharing, Gmail and backup reject with `ServiceError('unknown', 'not built yet')` until their phases.
+
+How a write works: load the profile's state, ask the rules for a plan, add the review-inbox refresh, store everything in one transaction, notify subscribers once. If a rule rejects, nothing is stored and nobody is notified. Every method rejects with a `ServiceError`; unexpected failures are wrapped as `unknown`.
+
+Files: `src/core/createRealServices.ts`, `src/core/state.ts` (load state, store plan). `createRealServices` takes optional `{ db, now, newId }` for tests.
+
+Tests: 49 in `createRealServices.test.ts` against `fake-indexeddb`: every built method after `loadSampleProfile()` against the fixture `expected` values, each review resolution, reversing an answer with `setStatus`, a new prescription applied through the service and read back with `latestDiff`, duplicate detection by file hash, and the error paths. `npm run check` passes with 239 tests. The services have not been run in a real browser yet; that happens in Phase 7.
+
+Behaviour the UI mock should copy, or that differs from it:
+- **Sample clock.** For the sample profile "today" is fixed at `SAMPLE_TODAY` (2026-11-14), as in the mock, so its visit on 18 November stays the next visit and the passport says "prepared on 14 November" whatever the real date. Every other profile uses the device's date. This answers the clock question in `progress-ui.md`.
+- **`documents.add`** always stores the record as `pending_confirmation`, like the mock; call `documents.confirm` when the caregiver saves it. It rejects with `unsupported_file` for an empty file or anything that is not a PDF or an image. When the browser gives no type, the type is read from the first bytes (PDF, JPEG, PNG). `duplicateOf` is the earliest document of the same profile with the same hash; the new record is still stored, so "Discard" means calling `documents.remove`.
+- **`documents.confirm`** on an emailed report also closes its `new_document` review item as `added`. `review.resolve(id, 'dismissed')` on a `new_document` item deletes the unconfirmed document and its file.
+- **`documents.remove`** also deletes the file, the prescription lines of that document, the document's review item, and takes it off every visit's list of reports to share. Medicines that came from it stay, with `sourceDocumentId` still pointing at the removed document, so "View source" should handle `not_found`.
+- **`documents.file`** rejects with `not_found` when no file is stored. That is the case for all six sample documents until Phase 4 adds `public/sample-docs/`.
+- **`documents.list` and `search`** return newest first by document date, then by time added. Search matches the title or the type in words ("lab report").
+- **`prescriptions.apply`** rejects an empty list of lines, an unknown document or an unknown prescriber, and stores nothing in those cases. It files the document as a prescription from the given prescriber if it was not already.
+- **`visits.save` and `setSharedDocuments`** drop document ids that do not exist and repeated ids. `visits.save` rejects an unknown prescriber or an unreadable date.
+- **`visits.addQuestion`** ignores a question whose text is already on the visit (ignoring case).
+- **`medicines.setStatus`** with the status the medicine already has changes nothing and adds no history.
+- **`profiles.prescribers`** is sorted by name.
+
+Blocked on the contract: there is no way to create a prescriber. See `docs/contract-requests-core.md`, request 1.

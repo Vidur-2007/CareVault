@@ -69,6 +69,8 @@ export interface Repos {
   };
   prescriptionLines: CrudRepo<PrescriptionLine> & {
     byDocument(documentId: ID): Promise<PrescriptionLine[]>;
+    byDocuments(documentIds: readonly ID[]): Promise<PrescriptionLine[]>;
+    deleteByDocument(documentId: ID): Promise<void>;
   };
   reviewItems: CrudRepo<ReviewItem> & {
     byProfile(profileId: ID): Promise<ReviewItem[]>;
@@ -170,6 +172,12 @@ export function createRepos(db: CareVaultDb, notifier: ChangeNotifier): Repos {
       ...crud(db.prescriptionLines),
       byDocument: (documentId) =>
         db.prescriptionLines.where('documentId').equals(documentId).toArray(),
+      byDocuments: (documentIds) =>
+        db.prescriptionLines.where('documentId').anyOf([...documentIds]).toArray(),
+      deleteByDocument: (documentId) =>
+        write(async () => {
+          await db.prescriptionLines.where('documentId').equals(documentId).delete();
+        }),
     },
 
     reviewItems: {
