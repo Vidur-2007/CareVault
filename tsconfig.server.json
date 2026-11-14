@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    /* Node ESM output in dist-server/. Relative imports may use .ts extensions; they are rewritten to .js. */
+    "module": "nodenext",
+    "rootDir": ".",
+    "outDir": "dist-server",
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["server/**/*.ts"],
+  "exclude": ["server/**/*.test.ts"]
+}
