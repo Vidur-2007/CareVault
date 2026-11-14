@@ -13,6 +13,7 @@ import {
   type Profile,
   type Visit,
 } from '../contract/types';
+import { exportBackup, importBackup } from './backup/backup';
 import { createChangeNotifier } from './db/events';
 import { byTime, createRepos, type Repos } from './db/repos';
 import { CareVaultDb } from './db/schema';
@@ -25,6 +26,7 @@ import { planAddMedicine, planConfirmMedicine, planSetStatus } from './rules/sta
 import { ingredientTotals } from './rules/totals';
 import { emptyPlan, type RuleContext, type RulesState, type WritePlan } from './rules/types';
 import { nextVisit, planAddQuestion } from './rules/visits';
+import { downloadPassport, revokeShare, uploadPassport } from './share/client';
 import { loadState, storePlan } from './state';
 
 export interface RealServicesOptions {
@@ -38,6 +40,10 @@ export interface RealServicesOptions {
   reading?: ReadingDeps;
   /** Defaults to the browser's `fetch`. */
   fetch?: typeof fetch;
+  /** The origin put into share links. Defaults to the page's own origin. */
+  origin?: () => string;
+  /** PBKDF2 iterations for backups. Lower only in tests. */
+  backupIterations?: number;
 }
 
 /** The files in public/sample-docs/ behind the six documents of the sample profile. */
@@ -109,6 +115,8 @@ export function createRealServices(options: RealServicesOptions = {}): CareVault
 
   const reading = options.reading ?? defaultReadingDeps();
   const fetcher: typeof fetch = options.fetch ?? ((...args) => fetch(...args));
+
+  const origin = options.origin ?? (() => globalThis.location?.origin ?? '');
 
   const nowIso = (): ISODateTime => clock().toISOString();
 
@@ -442,10 +450,36 @@ export function createRealServices(options: RealServicesOptions = {}): CareVault
     },
 
     sharing: {
-      create: notBuiltYet,
-      list: notBuiltYet,
-      revoke: notBuiltYet,
-      open: notBuiltYet,
+      create: guarded(async (passport, hours) => {
+        // Between one hour and seven days. The server applies the same upper limit.
+        const lifetime = Math.min(Math.max(Number.isFinite(hours) ? hours : 1, 1), 24 * 7);
+        const expiresAt = new Date(clock().getTime() + lifetime * 3_600_000).toISOString();
+        const share = await uploadPassport(passport, expiresAt, fetcher);
+        const link = {
+          id: share.id,
+          url: `${origin()}/share/${share.id}#${share.key}`,
+          expiresAt: share.expiresAt,
+          revoked: false,
+        };
+        await repos.shares.put({ ...link, revokeToken: share.revokeToken });
+        return link;
+      }),
+
+      list: guarded(async () =>
+        (await repos.shares.all())
+          .sort(byTime((s) => s.expiresAt))
+          .reverse()
+          .map(({ id, url, expiresAt, revoked }) => ({ id, url, expiresAt, revoked })),
+      ),
+
+      revoke: guarded(async (id) => {
+        const share = await need(repos.shares.get(id), 'share link');
+        if (share.revoked) return;
+        await revokeShare(id, share.revokeToken, fetcher);
+        await repos.shares.put({ ...share, revoked: true });
+      }),
+
+      open: guarded((id, key) => downloadPassport(id, key, fetcher)),
     },
 
     gmail: {
@@ -455,8 +489,10 @@ export function createRealServices(options: RealServicesOptions = {}): CareVault
     },
 
     backup: {
-      export: notBuiltYet,
-      import: notBuiltYet,
+      export: guarded((passphrase) =>
+        exportBackup(repos, passphrase, { iterations: options.backupIterations, now: clock }),
+      ),
+      import: guarded((file, passphrase) => importBackup(repos, file, passphrase)),
     },
 
     settings: {

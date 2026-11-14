@@ -226,18 +226,11 @@ describe('contract: every built method, against the sample profile', () => {
     expect(listener).toHaveBeenCalledTimes(2);
   });
 
-  it('the groups that are not built yet reject with a ServiceError', async () => {
-    const passport = await services.visits.buildPassport(PROFILE);
+  it('the group that is not built yet rejects with a ServiceError', async () => {
     const pending = [
-      () => services.sharing.create(passport, 2),
-      () => services.sharing.list(),
-      () => services.sharing.revoke('x'),
-      () => services.sharing.open('x', 'key'),
       () => services.gmail.connect(),
       () => services.gmail.findCandidates(),
       () => services.gmail.importAttachment(PROFILE, 'message'),
-      () => services.backup.export('passphrase'),
-      () => services.backup.import(pdf(), 'passphrase'),
     ];
     for (const call of pending) {
       const error = await rejection(call());

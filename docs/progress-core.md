@@ -124,3 +124,48 @@ The decision (which engine is first, whether the other stays as fallback) is mad
 ### Unconfirmed drug reference entries
 
 See `src/core/drugref/SOURCES.md`. In short: 70 products are in; Dolo 650, Telma 40, Telma H and Okacet 10 are in but need a look at the pack or the page; about 25 well-known products (Glycomet, Ecosprin, Amlong, Omez, Saridon and others) are left out because no manufacturer source confirmed them.
+
+## Phase 5: server, encrypted sharing, backup (2026-11-14)
+
+Built:
+- **Server** (`server/`): one Hono app. `index.ts` (app, rate limit, health, static files with the app shell as fallback), `extract.ts` (`POST /api/extract`, Gemini with a JSON response schema), `share.ts` (the three share routes and the Supabase store), `schema.sql`.
+- **Sharing** (`src/core/share`): `crypto.ts` (AES-GCM, 256-bit key, 96-bit IV, both new for every share) and `client.ts`. `services.sharing` is wired: create, list, revoke, open.
+- **Backup** (`src/core/backup/backup.ts`): `services.backup` is wired. PBKDF2-HMAC-SHA256 with 600,000 iterations (OWASP Password Storage Cheat Sheet, read 2026-11-14), a random 16-byte salt, AES-GCM. The file is one line of JSON (`format`, `version`, `kdf`, `iterations`, `salt`, `iv`), a newline, then the ciphertext.
+
+Tests: 17 for the server routes with a faked Supabase client, and 16 end to end in `server/e2e.test.ts`, where the real services talk to the real routes over an in-memory store: a link made on one "phone" opens on a second device from the link alone, stops at expiry, stops after revoke, and fails with a wrong key. `npm run check` passes with 314 tests. The built server was started and answered on `/api/health`, a client route (`/share/abc` gets the app shell), a sample PDF, and the API with nothing configured (503).
+
+Not tested: a real Supabase project and a real Gemini key. The checklist below covers both.
+
+What the server does and does not do:
+- It stores ciphertext, an IV, an expiry and a SHA-256 hash of the revoke token. It never receives the key, which is only in the link after `#`.
+- Expiry is capped at 7 days from now; ciphertext at 200 KB; images at 6 MB. 60 requests a minute per client address on `/api`.
+- It logs nothing about requests. Errors go back as a short JSON message with no detail from the database or the model.
+- `GET /api/health` always returns 200 with `{ ok, shareStore, cloudReading }`. `shareStore` is the result of one small query on the `shares` table.
+- Without Supabase settings the share routes answer 503; without Gemini settings `/api/extract` answers 503. The app still starts.
+
+For the UI side:
+- **`sharing.create(passport, hours)`** keeps `hours` between 1 and 168. The link is `<origin>/share/<id>#<key>`. `sharing.list()` returns newest expiry first and includes expired and revoked links; filter on `expiresAt` and `revoked` for "active links".
+- **`sharing.open(id, key)`** rejects with `not_found`, `expired`, `revoked`, `network`, or `unknown` (wrong or missing key, or the link holds something that is not a passport).
+- **`sharing.revoke`** rejects with `network` when offline and leaves the link marked as not revoked, so it can be tried again.
+- **`backup.export(passphrase)`** rejects an empty passphrase. It takes about a second because of key derivation. The blob's type is `application/vnd.carevault.backup`; a `.carevault` file name is a reasonable choice.
+- **`backup.import`** rejects with `bad_passphrase` (wrong passphrase, or a damaged file: the two cannot be told apart) or `unsupported_file` (not a backup). Nothing on the device changes unless the whole backup decrypts and checks out. Ask for confirmation before calling it: it replaces everything.
+- A backup includes the share links and their revoke tokens, so a restored device can still revoke them.
+
+### Checklist for the human
+
+1. **Supabase.** Create a project at supabase.com (free plan). Open the SQL editor, paste `server/schema.sql`, run it. Under Project Settings, API, copy the project URL and the `service_role` key. The service role key can read and write everything: it goes in `.env` on the server only, never in the browser and never in git.
+2. **Gemini.** Create an API key at https://aistudio.google.com/apikey. Pick a model that takes images and is available on your free tier: Google's model page lists `gemini-3.5-flash-lite` as the fast, low-cost option and `gemini-3.8-flash` as a stable general one, but it does not say which are free, so check the rate-limit page in AI Studio for your key. On the free tier Google may use what is sent, so send synthetic documents only.
+3. **Fill `.env`** (it is already in `.gitignore`):
+   ```
+   GEMINI_API_KEY=...
+   GEMINI_MODEL=gemini-3.5-flash-lite
+   SUPABASE_URL=https://<project>.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=...
+   VITE_USE_MOCK=false
+   PORT=8787
+   ```
+4. **Run locally.** `npm run build`, then `npm start`, and open http://localhost:8787. Or, while developing: `npm run dev:server` in one terminal and `npm run dev` in another. Check http://localhost:8787/api/health: it should show `"shareStore": true` and `"cloudReading": true`.
+5. **Confirm a share link.** Load the sample profile, open the Doctor Visit Passport, create a link. Open the link in a second browser (or a private window): the passport appears. Revoke it on the first, reload on the second: it says the link was revoked. In Supabase, look at the `shares` table: one row, and its `ciphertext` is unreadable.
+6. **Confirm cloud reading** with a photo of a pack that the device cannot read (or any photo, with Wi-Fi model downloads blocked): agree to send it, and the fields should come back with `engine: 'cloud'`.
+
+Step 5 needs the UI's passport and share screens, so it can only be done after the two branches are merged, or against the mock for the screens and `curl` for the API.
