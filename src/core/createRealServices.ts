@@ -18,6 +18,9 @@ import { createChangeNotifier } from './db/events';
 import { byTime, createRepos, type Repos } from './db/repos';
 import { CareVaultDb } from './db/schema';
 import { loadSampleProfile } from './db/seed';
+import { downloadAttachment, findCandidates } from './gmail/api';
+import { createTokenSource, type TokenSource } from './gmail/token';
+import { findDocumentType } from './reading/parse';
 import { defaultReadingDeps, readDocument, type ReadingDeps } from './reading/read';
 import { buildChangeSummary, buildPassport } from './rules/passport';
 import { buildDiff, planPrescriptionApply } from './rules/prescriptions';
@@ -42,6 +45,8 @@ export interface RealServicesOptions {
   fetch?: typeof fetch;
   /** The origin put into share links. Defaults to the page's own origin. */
   origin?: () => string;
+  /** Google sign-in for Gmail import. Defaults to Google Identity Services with VITE_GOOGLE_CLIENT_ID. */
+  gmailToken?: TokenSource;
   /** PBKDF2 iterations for backups. Lower only in tests. */
   backupIterations?: number;
 }
@@ -57,6 +62,7 @@ export const SAMPLE_DOCUMENT_FILES: Readonly<Record<ID, string>> = {
 };
 
 const CLOUD_READING_KEY = 'cloudReadingAllowed';
+const IMPORTED_MESSAGES_KEY = 'gmailImportedMessageIds';
 
 function localDate(date: Date): ISODate {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -79,10 +85,6 @@ function guarded<A extends unknown[], R>(fn: (...args: A) => Promise<R>): (...ar
     }
   };
 }
-
-const notBuiltYet = guarded(async (): Promise<never> => {
-  throw new ServiceError('unknown', 'not built yet');
-});
 
 const hex = (bytes: ArrayBuffer) =>
   [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -116,6 +118,9 @@ export function createRealServices(options: RealServicesOptions = {}): CareVault
   const reading = options.reading ?? defaultReadingDeps();
   const fetcher: typeof fetch = options.fetch ?? ((...args) => fetch(...args));
 
+  const gmailToken =
+    options.gmailToken ?? createTokenSource({ clientId: import.meta.env?.VITE_GOOGLE_CLIENT_ID as string | undefined });
+  const importedMessageIds = async () => (await repos.settings.get<string[]>(IMPORTED_MESSAGES_KEY)) ?? [];
   const origin = options.origin ?? (() => globalThis.location?.origin ?? '');
 
   const nowIso = (): ISODateTime => clock().toISOString();
@@ -483,9 +488,52 @@ export function createRealServices(options: RealServicesOptions = {}): CareVault
     },
 
     gmail: {
-      connect: notBuiltYet,
-      findCandidates: notBuiltYet,
-      importAttachment: notBuiltYet,
+      connect: guarded(() => gmailToken.connect()),
+
+      findCandidates: guarded(async () => {
+        const candidates = await findCandidates(gmailToken.token(), fetcher);
+        const done = new Set(await importedMessageIds());
+        return candidates.filter((candidate) => !done.has(candidate.messageId));
+      }),
+
+      importAttachment: guarded(async (profileId, messageId) => {
+        // Download and hash first: only database calls may run inside the transaction.
+        const { candidate, file } = await downloadAttachment(gmailToken.token(), messageId, fetcher);
+        const sha256 = await sha256Hex(await file.arrayBuffer());
+        const title = candidate.attachmentName.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ').trim() || candidate.subject;
+        const guessed = findDocumentType(`${candidate.subject}\n${title}`);
+
+        return repos.transaction(async () => {
+          const state = await loadState(repos, profileId);
+          const done = await importedMessageIds();
+          if (!done.includes(messageId)) await repos.settings.set(IMPORTED_MESSAGES_KEY, [...done, messageId]);
+
+          // The same attachment imported twice stays one document.
+          const existing = state.documents.find((d) => d.sha256 === sha256 && d.source === 'email');
+          if (existing) return existing;
+
+          const record: DocumentRecord = {
+            id: newId(),
+            profileId,
+            // Guessed from the subject and file name only. The caregiver can change it.
+            type: guessed,
+            title,
+            documentDate: candidate.date,
+            source: 'email',
+            state: 'pending_confirmation',
+            starred: false,
+            prescriberId: null,
+            mimeType: 'application/pdf',
+            sha256,
+            addedAt: nowIso(),
+          };
+          const ctx = contextFor(profileId);
+          // The refresh opens the "Add this to the records?" review item.
+          await storePlan(repos, state, withReviewRefresh(state, withDocument(record), ctx));
+          await repos.files.put(record.id, file);
+          return record;
+        });
+      }),
     },
 
     backup: {

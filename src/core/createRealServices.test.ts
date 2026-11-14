@@ -16,6 +16,7 @@ import type { CareVaultServices } from '../contract/services';
 import { ServiceError, type ExtractedLine, type MedicineStatus } from '../contract/types';
 import { createRealServices, SAMPLE_DOCUMENT_FILES } from './createRealServices';
 import { CareVaultDb } from './db/schema';
+import { createTokenSource } from './gmail/token';
 
 const M = IDS.medicines;
 const D = IDS.documents;
@@ -226,17 +227,11 @@ describe('contract: every built method, against the sample profile', () => {
     expect(listener).toHaveBeenCalledTimes(2);
   });
 
-  it('the group that is not built yet rejects with a ServiceError', async () => {
-    const pending = [
-      () => services.gmail.connect(),
-      () => services.gmail.findCandidates(),
-      () => services.gmail.importAttachment(PROFILE, 'message'),
-    ];
-    for (const call of pending) {
-      const error = await rejection(call());
-      expect(error.code).toBe('unknown');
-      expect(error.message).toBe('not built yet');
-    }
+  it('gmail asks to be connected first, and says so when no client id is configured', async () => {
+    expect((await rejection(services.gmail.findCandidates())).message).toBe('Connect Gmail first.');
+    expect((await rejection(services.gmail.importAttachment(PROFILE, 'message'))).message).toBe('Connect Gmail first.');
+    const unconfigured = createRealServices({ db, gmailToken: createTokenSource({ clientId: '' }) });
+    expect((await rejection(unconfigured.gmail.connect())).message).toContain('VITE_GOOGLE_CLIENT_ID');
   });
 });
 

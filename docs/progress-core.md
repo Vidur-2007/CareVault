@@ -169,3 +169,57 @@ For the UI side:
 6. **Confirm cloud reading** with a photo of a pack that the device cannot read (or any photo, with Wi-Fi model downloads blocked): agree to send it, and the fields should come back with `engine: 'cloud'`.
 
 Step 5 needs the UI's passport and share screens, so it can only be done after the two branches are merged, or against the mock for the screens and `curl` for the API.
+
+## Phase 6: Gmail import (2026-11-14)
+
+Built:
+- `src/core/gmail/token.ts`: Google Identity Services token model, scope `gmail.readonly` only. The script loads on the first "Connect". The access token is held in memory and treated as expired a minute before Google's own expiry. It is never written to IndexedDB and never sent to our server.
+- `src/core/gmail/api.ts`: three read-only calls to the Gmail REST API (search, read a message, download an attachment).
+- `services.gmail` is wired: `connect`, `findCandidates`, `importAttachment`.
+
+Tests: 13 in `gmail.test.ts` with mocked `fetch` responses and a stand-in for Google's sign-in. `npm run check` passes with 327 tests. Rules branch coverage is still 100%.
+
+Not tested: a real Google sign-in and a real inbox. That needs the Google Cloud setup below and a browser.
+
+Behaviour:
+- **Search.** `has:attachment filename:pdf newer_than:60d (report OR lab OR result OR prescription)`, at most 20 messages. A candidate is a message with at least one PDF; `attachmentName` is the first PDF.
+- **Import.** The PDF is stored as a `DocumentRecord` with `source: 'email'`, `state: 'pending_confirmation'`. Its title is the file name without `.pdf`, its date is the day the email arrived, and its type is guessed from the subject and file name only (the PDF is not read at this point). A `new_document` review item opens for it: "Add this ... to his records?".
+- **Already imported.** Importing the same attachment again returns the existing document. Imported message ids are remembered (in the settings table), so `findCandidates` does not offer them again, even after "Not his" removed the document.
+- **Errors.** Not connected, or the token has expired: `unknown` with "Connect Gmail first." or "The Gmail connection has expired. Please connect again." No client id: `unknown` naming `VITE_GOOGLE_CLIENT_ID`. Consent refused or the window closed: `unknown`, with "Nothing was read." in the message.
+
+For the UI side:
+- Call `gmail.connect()` straight from the tap on "Connect Gmail". Browsers block the Google window if it is opened later.
+- A connection lasts about an hour and does not survive a page reload. After a reload `findCandidates` rejects with "Connect Gmail first."
+- Show the CloudNotice ("Reading your inbox for report attachments") around `findCandidates` and `importAttachment`: both talk to Google.
+
+### Google Cloud setup, for the human
+
+1. Go to https://console.cloud.google.com and create a project (for example "CareVault demo").
+2. APIs and Services, Library: search for "Gmail API" and enable it.
+3. APIs and Services, OAuth consent screen: choose External, fill in the app name and your email, and leave the publishing status on **Testing**. Do not publish: `gmail.readonly` is a restricted scope and a published app would need Google's security review.
+4. On the same screen, add the scope `https://www.googleapis.com/auth/gmail.readonly`, and under Test users add the team's test Gmail address. Only test users can connect.
+5. APIs and Services, Credentials: Create credentials, OAuth client ID, type "Web application". Under Authorised JavaScript origins add `http://localhost:5173` and `http://localhost:8787` now, and the deployed origin once it exists. No redirect URI is needed for the token model.
+6. Copy the client id (it ends in `.apps.googleusercontent.com`) into `.env` as `VITE_GOOGLE_CLIENT_ID`, and into the build environment on Deployxa. It is not a secret, but it is read at build time, so rebuild after changing it.
+7. In Testing status Google shows an "unverified app" screen. Choose Continue.
+
+### Preparing the test inbox
+
+Use the test Gmail address from step 4 and send it three emails from any other account, each with one PDF attached. The files in `public/sample-docs/` work well:
+
+| Subject | Attachment |
+| --- | --- |
+| Your HbA1c lab report | `hba1c-report-2026-11-12.pdf` |
+| Lipid profile result | `lipid-profile-2026-11-12.pdf` |
+| ECG test report | `ecg-report-2026-09-15.pdf` |
+
+Each subject contains one of the words the search looks for (report, lab, result, prescription). Use synthetic documents only: this inbox is read by the app, and on the demo it is on screen.
+
+## State of the core side after Phase 6
+
+All build phases (1 to 6) are done and pushed on `feat/core`. Open before integration:
+
+1. **Contract request 1** (`docs/contract-requests-core.md`): there is no way to create a prescriber, so a profile that is not the sample cannot apply a prescription or save a visit.
+2. **OCR phone test** (Phase 4 above): needed to choose the engine. Tesseract.js is the default until then.
+3. **Drug reference spot checks** (`src/core/drugref/SOURCES.md`): four entries to confirm, about 25 products left out.
+4. **Accounts**: Supabase, Gemini key, Google OAuth client (checklists in Phases 5 and 6).
+5. Nothing has been run in a real browser or against real Supabase, Gemini or Gmail. That is Phase 7.
