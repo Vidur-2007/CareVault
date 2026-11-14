@@ -87,8 +87,13 @@
     min-height: 100dvh;
   }
 
-  h1, h2, h3, h4 {
+  /* Page and section titles: Manrope 700. Card titles: Inter 600 (UI spec section 3, Type). */
+  h1, h2 {
     @apply font-heading font-bold text-ink;
+  }
+
+  h3, h4 {
+    @apply font-sans font-semibold text-ink;
   }
 
   :focus-visible {
@@ -108,8 +113,10 @@
 }
 
 @layer utilities {
+  /* Content is at most 1240 px wide; the gutter (20 phone / 40 desktop) sits outside it. */
   .page-gutter {
-    @apply mx-auto w-full max-w-content px-5 md:px-10;
+    @apply mx-auto w-full px-5 md:px-10;
+    max-width: calc(var(--container-content) + 80px);
   }
 }
 

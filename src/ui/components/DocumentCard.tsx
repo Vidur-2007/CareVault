@@ -11,8 +11,8 @@ export interface DocumentCardProps {
   document: DocumentRecord;
   /** First-page thumbnail (image or rendered PDF page). */
   thumbnail?: ReactNode;
-  /** Extra line, e.g. "2 medicine changes found". */
-  extra?: ReactNode;
+  /** Replaces the state at the end of the meta line, e.g. "2 medicine changes found". */
+  extra?: string;
   onToggleStar?: (starred: boolean) => void;
   starPending?: boolean;
   /** Link target. Default /records/:id. */
@@ -22,7 +22,7 @@ export interface DocumentCardProps {
 
 export function DocumentCard({ document: doc, thumbnail, extra, onToggleStar, starPending, to, className }: DocumentCardProps) {
   const pending = doc.state === 'pending_confirmation';
-  const meta = [formatDate(doc.documentDate), sourceLabel(doc), pending ? null : stateLabel(doc)].filter(Boolean).join(' · ');
+  const meta = [formatDate(doc.documentDate), sourceLabel(doc), extra ?? (pending ? null : stateLabel(doc))].filter(Boolean).join(' · ');
 
   return (
     <article className={cx('relative flex flex-col rounded-card-sm border border-line bg-surface shadow-card md:rounded-card', className)}>
@@ -52,8 +52,7 @@ export function DocumentCard({ document: doc, thumbnail, extra, onToggleStar, st
             {doc.title}
           </Link>
         </h3>
-        <p className="mt-2 text-secondary text-ink-3">{meta}</p>
-        {extra && <p className="mt-1 text-secondary text-ink-2">{extra}</p>}
+        <p className="mt-2 text-secondary text-ink-3 md:text-body-sm">{meta}</p>
       </div>
     </article>
   );

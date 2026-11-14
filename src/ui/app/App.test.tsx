@@ -28,7 +28,7 @@ describe('app shell', () => {
 
   it('navigates between sections', async () => {
     const { router } = renderAt('/');
-    await screen.findByRole('heading', { level: 1, name: 'Things to review' });
+    await screen.findByRole('heading', { level: 1, name: /things to review/i });
     const nav = screen.getAllByRole('navigation', { name: 'Main' })[0];
     await userEvent.click(within(nav).getByRole('link', { name: /Visit/ }));
     expect(await screen.findByRole('heading', { level: 1, name: 'What changed since the last visit' })).toBeInTheDocument();
@@ -40,7 +40,7 @@ describe('app shell', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Welcome to CareVault' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/welcome');
     await userEvent.click(screen.getByRole('button', { name: 'Try the sample profile' }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Things to review' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: /things to review/i })).toBeInTheDocument();
   });
 
   it('every route renders a page heading', async () => {

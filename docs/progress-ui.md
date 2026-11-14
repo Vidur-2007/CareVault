@@ -24,3 +24,41 @@ Notes for later phases and for the core side:
 - **Mock wording.** The mock's own copy (new review items, questions, diff notes) avoids pronouns. Screens add he/she/they from the profile relation (`src/ui/lib/pronouns.ts`).
 - **PWA icons.** The manifest names `public/pwa-192x192.png` and `public/pwa-512x512.png`; these are still to be added (PWA phase).
 - **Bundle size.** The main JS chunk is about 564 kB, and the build warns. Split screens with `React.lazy` once they are real. pdf.js is already loaded only on demand.
+
+## Phase 2: Welcome and Review (2026-11-14)
+
+Built:
+- **Welcome (`/welcome`, 7.1)** has two actions, "Try the sample profile" and "Create a profile".
+  - The form asks for name, relation, optional birth year, your name and your relation.
+  - Validation lives in `screens/welcome/validateProfile.ts`. Errors show on submit, are linked to their fields, and focus moves to the first invalid field; after that they update as you type.
+  - On success the profile is selected and Review opens.
+- **Review (`/`, 7.2)** has:
+  - The header: date line, greeting, the answer sentence and "Prepare for the visit".
+  - All four review kinds with their actions.
+  - A ConfirmDialog before "Stopped".
+  - Toasts with Undo.
+  - The Next visit panel.
+  - "Since the last visit" tiles that count up.
+  - The three most recent confirmed records, with "2 medicine changes found" on the latest prescription.
+  - Loading, empty and error states.
+  - The phone layout follows `CareVault-Mobile.png`: "3 things to review", the visit line and a compact next-visit link.
+- **Undo** (`screens/review/useDeferredResolutions.ts`): an answer hides the card and is sent to `review.resolve` only when the 5-second toast closes without Undo. Leaving the screen, or the page being hidden, sends held answers immediately.
+- **Shared changes:**
+  - `.page-gutter` now gives 1240 px of content with the gutter outside it, to match the mockup's 100 px inset at 1440.
+  - Card titles (h3/h4) are Inter 600, as in the spec; page and section titles stay Manrope 700.
+  - The meta line of `DocumentCard` can carry "2 medicine changes found" in place of the state.
+  - The phone `main` padding includes the safe-area inset.
+
+Compared against the mockups. Screenshots were taken at 1440 px and at 390×844 with headless Edge (DevTools device emulation, reduced motion) against the mock. Desktop matches `CareVault-Main.png` in structure, wording, colours and proportions. Phone matches `CareVault-Mobile.png`, and the last section scrolls clear of the tab bar.
+
+Remaining differences:
+1. **Greeting.** It follows the time of day ("Good evening" in the evening). The mockup shows "Good morning".
+2. **Phone card text.**
+   - The phone mockup uses shorter card text, e.g. "At home, but missing from the 28 Oct prescription." The app shows the review item's single `body`, the same text as on desktop. The phone mockup also shows the duplicate card with no body; the app keeps it.
+   - The phone mockup has a shorter duplicate title ("Two products contain paracetamol"); the app uses the fixture title "Two products at home contain paracetamol".
+   - Matching any of these would need a short-body field in the contract or invented copy, so I left them.
+3. **"View both prescriptions" on phone.** The link stays on phone, centred under the buttons. The phone mockup ends the card after "Ask the doctor". I kept the link so the action is reachable on phones.
+4. **Next visit and stat-tile numbers.** These use Manrope 700. The mockup's weight looks slightly lighter; this is within the spec's heading rule.
+5. **Phone below the fold.** The mockup shows only the top of the page. Below the cards, the app follows UI spec §9: "Since the last visit", then the recent records, stacked.
+
+Tests: Review covers the three cards and the sentence; Still taking, Stopped (with the dialog, and cancel), Add to records and Undo; empty and error states. Welcome covers validation and focus, creating a profile, and the `validateProfile` unit cases. The copy variants are unit-tested. 48 tests in total.
