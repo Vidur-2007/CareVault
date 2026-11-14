@@ -46,7 +46,8 @@ export function AppShell() {
         <CloudNotice message={cloud.message} />
       </header>
 
-      <main id="main" tabIndex={-1} className="flex-1 pb-28 outline-none md:pb-16">
+      {/* Bottom padding clears the phone tab bar and the home indicator, so the last card is never hidden. */}
+      <main id="main" tabIndex={-1} className="flex-1 pb-[calc(7rem+env(safe-area-inset-bottom))] outline-none md:pb-16">
         {loading ? (
           <div className="page-gutter py-8 md:py-12">
             <Skeleton className="mb-6 h-10 w-2/3 max-w-md" />
