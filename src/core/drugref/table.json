@@ -1,0 +1,1150 @@
+{
+  "synonyms": {
+    "acetaminophen": "paracetamol",
+    "acetylsalicylic acid": "aspirin",
+    "albuterol": "salbutamol",
+    "amoxycillin": "amoxicillin",
+    "beclomethasone": "beclometasone",
+    "cephalexin": "cefalexin",
+    "chlorpheniramine": "chlorphenamine",
+    "dicyclomine": "dicycloverine",
+    "epinephrine": "adrenaline",
+    "frusemide": "furosemide",
+    "glyburide": "glibenclamide",
+    "glycopyrrolate": "glycopyrronium",
+    "guaiphenesin": "guaifenesin",
+    "hydroxyurea": "hydroxycarbamide",
+    "isoproterenol": "isoprenaline",
+    "l-thyroxine": "levothyroxine",
+    "levalbuterol": "levosalbutamol",
+    "lignocaine": "lidocaine",
+    "meperidine": "pethidine",
+    "norepinephrine": "noradrenaline",
+    "rifampin": "rifampicin",
+    "simethicone": "simeticone",
+    "thyroxine": "levothyroxine",
+    "torsemide": "torasemide",
+    "vitamin c": "ascorbic acid",
+    "vitamin d3": "cholecalciferol"
+  },
+  "products": [
+    {
+      "productName": "Dolo 650",
+      "aliases": [
+        "Dolo-650",
+        "Dolo 650 mg"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "paracetamol",
+          "strength": 650,
+          "unit": "mg"
+        }
+      ],
+      "source": "spec"
+    },
+    {
+      "productName": "Crocin Advance 500",
+      "aliases": [
+        "Crocin Advance",
+        "Crocin Advance 500 mg"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "paracetamol",
+          "strength": 500,
+          "unit": "mg"
+        }
+      ],
+      "source": "crocin"
+    },
+    {
+      "productName": "Amlodipine 5 mg",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "amlodipine",
+          "strength": 5,
+          "unit": "mg"
+        }
+      ],
+      "source": "generic"
+    },
+    {
+      "productName": "Amlodipine 10 mg",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "amlodipine",
+          "strength": 10,
+          "unit": "mg"
+        }
+      ],
+      "source": "generic"
+    },
+    {
+      "productName": "Telmisartan 40 mg",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "telmisartan",
+          "strength": 40,
+          "unit": "mg"
+        }
+      ],
+      "source": "generic"
+    },
+    {
+      "productName": "Atorvastatin 10 mg",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "atorvastatin",
+          "strength": 10,
+          "unit": "mg"
+        }
+      ],
+      "source": "generic"
+    },
+    {
+      "productName": "Rosuvastatin 10 mg",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "rosuvastatin",
+          "strength": 10,
+          "unit": "mg"
+        }
+      ],
+      "source": "generic"
+    },
+    {
+      "productName": "Metformin 500 mg",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "metformin",
+          "strength": 500,
+          "unit": "mg"
+        }
+      ],
+      "source": "generic"
+    },
+    {
+      "productName": "Pantoprazole 40 mg",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "pantoprazole",
+          "strength": 40,
+          "unit": "mg"
+        }
+      ],
+      "source": "generic"
+    },
+    {
+      "productName": "Crocin 500",
+      "aliases": [
+        "Crocin 500 mg"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "paracetamol",
+          "strength": 500,
+          "unit": "mg"
+        }
+      ],
+      "source": "crocin"
+    },
+    {
+      "productName": "Crocin 650",
+      "aliases": [
+        "Crocin 650 mg"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "paracetamol",
+          "strength": 650,
+          "unit": "mg"
+        }
+      ],
+      "source": "crocin"
+    },
+    {
+      "productName": "Calpol 500",
+      "aliases": [
+        "Calpol 500 mg"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "paracetamol",
+          "strength": 500,
+          "unit": "mg"
+        }
+      ],
+      "source": "gsk"
+    },
+    {
+      "productName": "Calpol 650",
+      "aliases": [
+        "Calpol 650 mg"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "paracetamol",
+          "strength": 650,
+          "unit": "mg"
+        }
+      ],
+      "source": "gsk"
+    },
+    {
+      "productName": "Combiflam",
+      "aliases": [
+        "Combiflam Tablets"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "ibuprofen",
+          "strength": 400,
+          "unit": "mg"
+        },
+        {
+          "name": "paracetamol",
+          "strength": 325,
+          "unit": "mg"
+        }
+      ],
+      "source": "sanofi-pi"
+    },
+    {
+      "productName": "Combiflam Plus",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "paracetamol",
+          "strength": 650,
+          "unit": "mg"
+        },
+        {
+          "name": "caffeine",
+          "strength": 50,
+          "unit": "mg"
+        }
+      ],
+      "source": "sanofi"
+    },
+    {
+      "productName": "Novalgin NU",
+      "aliases": [
+        "Novalgin-NU"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "paracetamol",
+          "strength": 650,
+          "unit": "mg"
+        },
+        {
+          "name": "caffeine",
+          "strength": 50,
+          "unit": "mg"
+        }
+      ],
+      "source": "sanofi"
+    },
+    {
+      "productName": "Baralgan NU",
+      "aliases": [
+        "Baralgan-NU"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "dicycloverine",
+          "strength": 20,
+          "unit": "mg"
+        },
+        {
+          "name": "paracetamol",
+          "strength": 500,
+          "unit": "mg"
+        }
+      ],
+      "source": "sanofi"
+    },
+    {
+      "productName": "Buscogast Plus",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "hyoscine butylbromide",
+          "strength": 10,
+          "unit": "mg"
+        },
+        {
+          "name": "paracetamol",
+          "strength": 325,
+          "unit": "mg"
+        }
+      ],
+      "source": "sanofi"
+    },
+    {
+      "productName": "Sumo",
+      "aliases": [
+        "Sumo Tablets"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "nimesulide",
+          "strength": 100,
+          "unit": "mg"
+        },
+        {
+          "name": "paracetamol",
+          "strength": 500,
+          "unit": "mg"
+        }
+      ],
+      "source": "alkem"
+    },
+    {
+      "productName": "Dolamide",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "nimesulide",
+          "strength": 100,
+          "unit": "mg"
+        },
+        {
+          "name": "paracetamol",
+          "strength": 325,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Enzoflam",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "serratiopeptidase",
+          "strength": 15,
+          "unit": "mg"
+        },
+        {
+          "name": "diclofenac",
+          "strength": 50,
+          "unit": "mg"
+        },
+        {
+          "name": "paracetamol",
+          "strength": 325,
+          "unit": "mg"
+        }
+      ],
+      "source": "alkem"
+    },
+    {
+      "productName": "New Sumo Cold",
+      "aliases": [
+        "New Sumocold",
+        "Sumocold New"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "cetirizine",
+          "strength": 5,
+          "unit": "mg"
+        },
+        {
+          "name": "paracetamol",
+          "strength": 500,
+          "unit": "mg"
+        },
+        {
+          "name": "phenylephrine",
+          "strength": 10,
+          "unit": "mg"
+        },
+        {
+          "name": "caffeine",
+          "strength": 25,
+          "unit": "mg"
+        }
+      ],
+      "source": "alkem"
+    },
+    {
+      "productName": "Okacet 10",
+      "aliases": [
+        "Okacet",
+        "Okacet 10 mg"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "cetirizine",
+          "strength": 10,
+          "unit": "mg"
+        }
+      ],
+      "source": "cipla"
+    },
+    {
+      "productName": "Stanhist 10",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "cetirizine",
+          "strength": 10,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Teczine 5",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "levocetirizine",
+          "strength": 5,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Montek LC",
+      "aliases": [
+        "Montek-LC"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "montelukast",
+          "strength": 10,
+          "unit": "mg"
+        },
+        {
+          "name": "levocetirizine",
+          "strength": 5,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Allegra 120",
+      "aliases": [
+        "Allegra 120 mg"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "fexofenadine",
+          "strength": 120,
+          "unit": "mg"
+        }
+      ],
+      "source": "sanofi"
+    },
+    {
+      "productName": "Allegra 180",
+      "aliases": [
+        "Allegra 180 mg"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "fexofenadine",
+          "strength": 180,
+          "unit": "mg"
+        }
+      ],
+      "source": "sanofi"
+    },
+    {
+      "productName": "Allegra M",
+      "aliases": [
+        "Allegra-M"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "fexofenadine",
+          "strength": 120,
+          "unit": "mg"
+        },
+        {
+          "name": "montelukast",
+          "strength": 10,
+          "unit": "mg"
+        }
+      ],
+      "source": "sanofi"
+    },
+    {
+      "productName": "Telma 40",
+      "aliases": [
+        "Telma 40 mg"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "telmisartan",
+          "strength": 40,
+          "unit": "mg"
+        }
+      ],
+      "source": "glenmark"
+    },
+    {
+      "productName": "Telma H",
+      "aliases": [
+        "Telma-H",
+        "Telma H 40"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "telmisartan",
+          "strength": 40,
+          "unit": "mg"
+        },
+        {
+          "name": "hydrochlorothiazide",
+          "strength": 12.5,
+          "unit": "mg"
+        }
+      ],
+      "source": "glenmark"
+    },
+    {
+      "productName": "Teleact 40",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "telmisartan",
+          "strength": 40,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Teleact AM",
+      "aliases": [
+        "Teleact-AM"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "telmisartan",
+          "strength": 40,
+          "unit": "mg"
+        },
+        {
+          "name": "amlodipine",
+          "strength": 5,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Teleact D",
+      "aliases": [
+        "Teleact-D"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "telmisartan",
+          "strength": 40,
+          "unit": "mg"
+        },
+        {
+          "name": "hydrochlorothiazide",
+          "strength": 12.5,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Repace 50",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "losartan",
+          "strength": 50,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Repace H",
+      "aliases": [
+        "Repace-H"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "losartan",
+          "strength": 50,
+          "unit": "mg"
+        },
+        {
+          "name": "hydrochlorothiazide",
+          "strength": 12.5,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Repace A",
+      "aliases": [
+        "Repace-A"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "losartan",
+          "strength": 50,
+          "unit": "mg"
+        },
+        {
+          "name": "amlodipine",
+          "strength": 5,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Olvance 20",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "olmesartan",
+          "strength": 20,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Prolomet XL 50",
+      "aliases": [
+        "Prolomet XL 50 mg"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "metoprolol",
+          "strength": 50,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Cardivas 6.25",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "carvedilol",
+          "strength": 6.25,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Clopilet 75",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "clopidogrel",
+          "strength": 75,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Metgem 500",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "metformin",
+          "strength": 500,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Riomet OD 500",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "metformin",
+          "strength": 500,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Glypride 1",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "glimepiride",
+          "strength": 1,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Gemer 1",
+      "aliases": [
+        "Gemer 1/500"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "glimepiride",
+          "strength": 1,
+          "unit": "mg"
+        },
+        {
+          "name": "metformin",
+          "strength": 500,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Gemer 2",
+      "aliases": [
+        "Gemer 2/500"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "glimepiride",
+          "strength": 2,
+          "unit": "mg"
+        },
+        {
+          "name": "metformin",
+          "strength": 500,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Glucored",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "glibenclamide",
+          "strength": 2.5,
+          "unit": "mg"
+        },
+        {
+          "name": "metformin",
+          "strength": 400,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Istavel 100",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "sitagliptin",
+          "strength": 100,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Istamet 50/500",
+      "aliases": [
+        "Istamet"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "sitagliptin",
+          "strength": 50,
+          "unit": "mg"
+        },
+        {
+          "name": "metformin",
+          "strength": 500,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Oxra 10",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "dapagliflozin",
+          "strength": 10,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Volibo 0.2",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "voglibose",
+          "strength": 0.2,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Rosuvas 5",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "rosuvastatin",
+          "strength": 5,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Rosuvas 10",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "rosuvastatin",
+          "strength": 10,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Rosuvas 20",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "rosuvastatin",
+          "strength": 20,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Rozavel 10",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "rosuvastatin",
+          "strength": 10,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Storvas 10",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "atorvastatin",
+          "strength": 10,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Storvas 20",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "atorvastatin",
+          "strength": 20,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Aztor 10",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "atorvastatin",
+          "strength": 10,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Aztor 20",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "atorvastatin",
+          "strength": 20,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Aztor ASP",
+      "aliases": [
+        "Aztor ASP 10/75"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "atorvastatin",
+          "strength": 10,
+          "unit": "mg"
+        },
+        {
+          "name": "aspirin",
+          "strength": 75,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Rosuvas CV 10",
+      "aliases": [
+        "Rosuvas CV 10/75"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "rosuvastatin",
+          "strength": 10,
+          "unit": "mg"
+        },
+        {
+          "name": "clopidogrel",
+          "strength": 75,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Pan 40",
+      "aliases": [
+        "Pan 40 mg",
+        "Pan-40"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "pantoprazole",
+          "strength": 40,
+          "unit": "mg"
+        }
+      ],
+      "source": "alkem-pi"
+    },
+    {
+      "productName": "Pan D",
+      "aliases": [
+        "Pan-D"
+      ],
+      "form": "capsule",
+      "ingredients": [
+        {
+          "name": "pantoprazole",
+          "strength": 40,
+          "unit": "mg"
+        },
+        {
+          "name": "domperidone",
+          "strength": 30,
+          "unit": "mg"
+        }
+      ],
+      "source": "alkem-pi"
+    },
+    {
+      "productName": "Pantocid 20",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "pantoprazole",
+          "strength": 20,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Pantocid 40",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "pantoprazole",
+          "strength": 40,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Pantocid DSR",
+      "aliases": [],
+      "form": "capsule",
+      "ingredients": [
+        {
+          "name": "domperidone",
+          "strength": 30,
+          "unit": "mg"
+        },
+        {
+          "name": "pantoprazole",
+          "strength": 40,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Raciper 40",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "esomeprazole",
+          "strength": 40,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Sompraz 40",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "esomeprazole",
+          "strength": 40,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Roles 20",
+      "aliases": [],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "rabeprazole",
+          "strength": 20,
+          "unit": "mg"
+        }
+      ],
+      "source": "sun"
+    },
+    {
+      "productName": "Clavam 625",
+      "aliases": [
+        "Clavam 625 mg"
+      ],
+      "form": "tablet",
+      "ingredients": [
+        {
+          "name": "amoxicillin",
+          "strength": 500,
+          "unit": "mg"
+        },
+        {
+          "name": "clavulanic acid",
+          "strength": 125,
+          "unit": "mg"
+        }
+      ],
+      "source": "alkem"
+    }
+  ]
+}

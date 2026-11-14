@@ -17,6 +17,7 @@ import { createChangeNotifier } from './db/events';
 import { byTime, createRepos, type Repos } from './db/repos';
 import { CareVaultDb } from './db/schema';
 import { loadSampleProfile } from './db/seed';
+import { defaultReadingDeps, readDocument, type ReadingDeps } from './reading/read';
 import { buildChangeSummary, buildPassport } from './rules/passport';
 import { buildDiff, planPrescriptionApply } from './rules/prescriptions';
 import { planReviewResolution, withReviewRefresh } from './rules/review';
@@ -33,7 +34,21 @@ export interface RealServicesOptions {
   now?: () => Date;
   /** Defaults to `crypto.randomUUID()`. */
   newId?: () => ID;
+  /** OCR, PDF and cloud reading. Defaults to the real engines, loaded on first use. */
+  reading?: ReadingDeps;
+  /** Defaults to the browser's `fetch`. */
+  fetch?: typeof fetch;
 }
+
+/** The files in public/sample-docs/ behind the six documents of the sample profile. */
+export const SAMPLE_DOCUMENT_FILES: Readonly<Record<ID, string>> = {
+  [IDS.documents.lipidProfile]: 'lipid-profile-2026-11-12.pdf',
+  [IDS.documents.raoLatest]: 'rx-rao-2026-10-28.pdf',
+  [IDS.documents.ecg]: 'ecg-report-2026-09-15.pdf',
+  [IDS.documents.hba1c]: 'hba1c-report-2026-11-12.pdf',
+  [IDS.documents.raoPrevious]: 'rx-rao-2026-08-05.pdf',
+  [IDS.documents.menon]: 'rx-menon-2026-07-14.pdf',
+};
 
 const CLOUD_READING_KEY = 'cloudReadingAllowed';
 
@@ -91,6 +106,9 @@ export function createRealServices(options: RealServicesOptions = {}): CareVault
   const repos: Repos = createRepos(db, notifier);
   const clock = options.now ?? (() => new Date());
   const newId = options.newId ?? (() => crypto.randomUUID());
+
+  const reading = options.reading ?? defaultReadingDeps();
+  const fetcher: typeof fetch = options.fetch ?? ((...args) => fetch(...args));
 
   const nowIso = (): ISODateTime => clock().toISOString();
 
@@ -220,7 +238,7 @@ export function createRealServices(options: RealServicesOptions = {}): CareVault
     },
 
     reading: {
-      read: notBuiltYet,
+      read: guarded((file, opts) => readDocument(file, { allowCloud: opts.allowCloud === true }, reading)),
     },
 
     documents: {
@@ -297,8 +315,18 @@ export function createRealServices(options: RealServicesOptions = {}): CareVault
       file: guarded(async (id) => {
         await need(repos.documents.get(id), 'document');
         const blob = await repos.files.get(id);
-        if (!blob) throw new ServiceError('not_found', 'The original file is not stored on this device.');
-        return blob;
+        if (blob) return blob;
+        // The sample profile's documents ship with the app instead of being stored.
+        const sample = SAMPLE_DOCUMENT_FILES[id];
+        if (!sample) throw new ServiceError('not_found', 'The original file is not stored on this device.');
+        let response: Response;
+        try {
+          response = await fetcher(`/sample-docs/${sample}`);
+        } catch {
+          throw new ServiceError('network', 'The sample document could not be loaded. Check the connection.');
+        }
+        if (!response.ok) throw new ServiceError('not_found', 'The sample document could not be loaded.');
+        return new Blob([await response.arrayBuffer()], { type: 'application/pdf' });
       }),
 
       search: guarded(async (profileId, text) => {

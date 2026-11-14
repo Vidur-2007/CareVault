@@ -75,3 +75,52 @@ Behaviour the UI mock should copy, or that differs from it:
 - **`profiles.prescribers`** is sorted by name.
 
 Blocked on the contract: there is no way to create a prescriber. See `docs/contract-requests-core.md`, request 1.
+
+## Phase 4: document reading and drug reference (2026-11-14)
+
+Built:
+- **Drug reference** (`src/core/drugref`): `table.json` with 70 products and 26 ingredient synonyms, `lookup.ts` (exact and near matching on names and aliases, finding product names in text, cross-check), and `SOURCES.md` with the source of every entry, the entries that need a second look, and the products left out as unconfirmed. Nine combination products contain paracetamol.
+- **Sample documents** (`public/sample-docs/`): six PDFs with a text layer, generated with headless Chrome from the HTML in `src/core/reading/dev/sample-docs-html/`. Clinic ("Sunrise Heart and Diabetes Clinic"), lab ("Lakeside Diagnostics"), doctors and patient are invented.
+- **Reading** (`src/core/reading`): `parse.ts` (deterministic: strengths, composition lines, dose patterns, dates, "Dr." names, document type), `quality.ts`, `pdfText.ts`, `cloud.ts` (zod-checked client for `POST /api/extract`), `ocr/tesseract.ts`, `ocr/paddle.ts`, and `read.ts`, which ties them together. `services.reading.read` is wired.
+- `documents.file` now returns the shipped PDF for the six sample documents (fetched from `/sample-docs/`), so the sample profile has previews.
+
+Tests: 41 in `reading.test.ts`. Each of the six sample PDFs is read on the device, without OCR and without the cloud, and the three prescriptions give exactly the lines of the sample case. The cloud path is tested with a mocked `fetch`. `npm run check` passes with 281 tests.
+
+Not tested: the two OCR engines and rendering a scanned PDF page need a real browser. They are thin wrappers and have never been run. That is what the phone test below is for.
+
+How `reading.read` decides:
+1. A PDF with a text layer is parsed directly. A photo or a scanned PDF goes through OCR (page 1 only for a PDF).
+2. The cloud is offered when the text is under 20 characters, OCR confidence is under 0.6, or a prescription or pack names no product or ingredient the drug reference knows. Reports are never sent for that last reason.
+3. Without `allowCloud` that rejects with `cloud_consent_required`. With it, one image goes to `/api/extract`.
+4. Every line is compared with the drug reference. A disagreement adds a warning to the line and changes nothing.
+
+For the UI side:
+- **Warnings to expect.** A pack usually gives "How often it is taken was not found." A brand name on a prescription with no printed composition gives "The ingredients were not printed. They were filled in from the drug reference for X. Please check."
+- **Instructions** are worded like the sample case: `1-0-0` is "1 tablet, morning", `0-0-1` is "1 tablet, night", `1-0-1` is "1 tablet, twice a day". An uneven pattern reads "2 morning, 1 night".
+- **Numeric dates are read day first** (28/10/2026). Manufacturing, expiry and birth dates are skipped.
+- **Until Phase 5** there is no `/api/extract`, so a read that needs the cloud and has consent rejects with `network`.
+- **First scan is slow.** The OCR engine and its model download on the first photo. Text PDFs do not need them.
+
+### OCR engine decision: waiting for a phone test
+
+Tesseract.js is the default and PaddleOCR.js is the fallback, as the prompt requires until real results are in. What is known so far, from the build only:
+
+| | Tesseract.js | PaddleOCR.js |
+| --- | --- | --- |
+| Code shipped with the app | under 1 kB of glue; the library loads its worker, core and English model from the jsDelivr CDN at run time | about 105 MB of JavaScript before compression (OpenCV.js 25.7 MB, onnxruntime-web 79 MB), about 30 MB gzipped |
+| Models | English model from the CDN | two PP-OCRv5 model archives from `paddle-model-ecology.bj.bcebos.com` at run time |
+
+Both engines fetch code or models from third-party hosts on first use. The photo itself stays on the device. If that is not acceptable for the demo, the files can be self-hosted from the server; say so and it goes into Phase 5.
+
+**For the human, on a mid-range phone:**
+1. On the laptop: `npm run dev -- --host`, and note the Network address it prints.
+2. On the phone, on the same Wi-Fi, open `http://<that address>/src/core/reading/dev/index.html`.
+3. Choose at least ten real pack photos and two printed prescriptions. Each is read by both engines.
+4. Press "Copy results" and paste the table here, under this heading.
+5. Note anything the table does not show: a long first load, the phone getting hot, the page reloading.
+
+The decision (which engine is first, whether the other stays as fallback) is made from that table, not before.
+
+### Unconfirmed drug reference entries
+
+See `src/core/drugref/SOURCES.md`. In short: 70 products are in; Dolo 650, Telma 40, Telma H and Okacet 10 are in but need a look at the pack or the page; about 25 well-known products (Glycomet, Ecosprin, Amlong, Omez, Saridon and others) are left out because no manufacturer source confirmed them.

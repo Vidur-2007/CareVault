@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CareVault OCR test</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 16px; color: #1c2b2b; max-width: 900px; }
+      h1 { font-size: 20px; }
+      table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
+      th, td { border: 1px solid #c9d6d6; padding: 6px; text-align: left; vertical-align: top; }
+      pre { white-space: pre-wrap; background: #f2f6f6; padding: 8px; font-size: 12px; max-height: 240px; overflow: auto; }
+      button, input { font-size: 16px; margin: 4px 0; }
+      .note { color: #51605f; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <h1>CareVault OCR test (not part of the app)</h1>
+    <p class="note">
+      Choose pack photos or printed prescriptions. Each image is read by both engines on this device. Nothing is
+      uploaded; the engines and their models are downloaded on first use. When done, press "Copy results" and paste
+      them into docs/progress-core.md.
+    </p>
+    <input id="files" type="file" accept="image/*" multiple />
+    <div><button id="copy" type="button">Copy results</button> <span id="status"></span></div>
+    <table>
+      <thead>
+        <tr><th>Image</th><th>Engine</th><th>Load (s)</th><th>Read (s)</th><th>Confidence</th><th>Product</th><th>Ingredients</th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="texts"></div>
+    <script type="module" src="./devPage.ts"></script>
+  </body>
+</html>

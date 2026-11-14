@@ -14,7 +14,7 @@ import {
 } from '../contract/fixtures/sampleCase';
 import type { CareVaultServices } from '../contract/services';
 import { ServiceError, type ExtractedLine, type MedicineStatus } from '../contract/types';
-import { createRealServices } from './createRealServices';
+import { createRealServices, SAMPLE_DOCUMENT_FILES } from './createRealServices';
 import { CareVaultDb } from './db/schema';
 
 const M = IDS.medicines;
@@ -229,7 +229,6 @@ describe('contract: every built method, against the sample profile', () => {
   it('the groups that are not built yet reject with a ServiceError', async () => {
     const passport = await services.visits.buildPassport(PROFILE);
     const pending = [
-      () => services.reading.read(pdf(), { allowCloud: false }),
       () => services.sharing.create(passport, 2),
       () => services.sharing.list(),
       () => services.sharing.revoke('x'),
@@ -402,9 +401,31 @@ describe('documents through the service', () => {
     expect(ids(await services.review.listOpen(PROFILE))).not.toContain(R.newDocumentHba1c);
   });
 
-  it('a sample document has no stored file yet', async () => {
-    const error = await rejection(services.documents.file(D.ecg));
-    expect(error.code).toBe('not_found');
+  it('a sample document is loaded from the files that ship with the app', async () => {
+    const asked: string[] = [];
+    const withFetch = createRealServices({
+      db,
+      fetch: async (url) => {
+        asked.push(String(url));
+        return String(url).includes('ecg') ? new Response('%PDF-sample') : new Response('', { status: 404 });
+      },
+    });
+    const file = await withFetch.documents.file(D.ecg);
+    expect(asked).toEqual(['/sample-docs/ecg-report-2026-09-15.pdf']);
+    expect(file.type).toBe('application/pdf');
+    expect(await file.text()).toBe('%PDF-sample');
+    expect((await rejection(withFetch.documents.file(D.menon))).code).toBe('not_found');
+
+    const offline = createRealServices({ db, fetch: async () => { throw new TypeError('offline'); } });
+    expect((await rejection(offline.documents.file(D.ecg))).code).toBe('network');
+  });
+
+  it('every sample document has a file in public/sample-docs', async () => {
+    // @ts-expect-error Node built-in: the app's tsconfig has no Node types.
+    const { existsSync } = await import('node:fs');
+    for (const doc of sampleDocuments) {
+      expect(existsSync(`public/sample-docs/${SAMPLE_DOCUMENT_FILES[doc.id]}`)).toBe(true);
+    }
   });
 });
 
