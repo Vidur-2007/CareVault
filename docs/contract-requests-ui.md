@@ -71,3 +71,5 @@ The UI now rewrites these before showing them (`src/ui/hooks/toServiceError.ts`)
 - setting names become "This feature is not set up on this copy of CareVault yet."
 
 Nothing is needed. If the core prefers to send caregiver-ready text, the UI keeps working either way.
+
+**#3 applied on `main` (2026-11-18), with the human's approval:** `workbox.globIgnores: ['**/worker-entry-*.js', '**/dist-*.js']` in `vite.config.ts`. Checked on a merge of `main` and `feat/core`: `npm run check` passes (489 tests). The two OCR files are still emitted and load on the first scan; they are not precached.

@@ -33,6 +33,9 @@ export default defineConfig(({ mode }) => {
         workbox: {
           // App shell only. OCR models, wasm and sample documents load on demand.
           globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+          // The OCR engine (onnxruntime-web worker, OpenCV.js; over 10 MB each) loads on the first
+          // scan and is never precached. Contract request ui #3.
+          globIgnores: ['**/worker-entry-*.js', '**/dist-*.js'],
           navigateFallbackDenylist: [/^\/api\//],
         },
       }),
