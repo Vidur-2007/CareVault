@@ -185,3 +185,56 @@ Tests (85 in total):
 - **An invalid line** blocks apply and focuses the field.
 - **Detail:** metadata, star, confirm through the review item, page and zoom controls, prescription lines, delete after confirmation.
 - **Pure helpers:** counts, month grouping, doctor matching, details validation.
+
+## Phase 5: Visit, passport, sharing (2026-11-18)
+
+Built:
+- **Visit (`/visit`, 7.8)** matches `CareVault-Changes.png`:
+  - **The header:** the "Appointment mode · Wednesday, 18 Nov, 10:30 am" pill, the title, and the "Comparing Dr. X’s two prescriptions…" sentence.
+  - **The date tiles:** Previous and Latest, each with "Open the scan".
+  - **One `DiffRow` per row,** ordered added, changed, review, unchanged (`visit/visitText.ts` orders them; the UI never relies on the service's order). Old strength or instructions are struck through and the new ones highlighted. Review rows carry the three answers, with the mockup's sentence using the profile's pronouns.
+  - **The side column:** Questions for the doctor (list, remove, add with a labelled input), Reports to share (confirmed reports, starred first; pending ones listed but disabled), and the dark status panel ("1 item still needs your answer" / "Everything is answered") with "Open the Doctor Visit Passport".
+  - **Phone:** under 900 px the status panel becomes a bar fixed above the tab bar.
+- **Visit edge cases:**
+  - **Answers** to review rows use the same Undo mechanism as Review. The status count drops as soon as a row is answered.
+  - **No next visit:** a form to add one (doctor, date, time), saved through `visits.save` with the device's UTC offset.
+  - **No previous prescription:** the Previous tile says so, a note explains why every medicine is "added", and the next prescription will be compared with this one.
+  - **No prescription at all:** a link to Records.
+- **Passport (`/visit/passport`, 7.9)** matches `CareVault-Passport.png`. `components/PassportView.tsx` is presentational and shared with the public view. It has:
+  - the logo, title and visit line;
+  - the QR box with the newest active link and its short expiry;
+  - the patient strip, the current medicines table and the changes with pills;
+  - Flag for review, Reports shared and Questions from the family;
+  - the exact disclaimer.
+
+  The toolbar has "Print or save as PDF" (`window.print()`) and "Share with QR".
+- **Print:** `@page { size: A4; margin: 12mm 14mm }`, plus print-only sizes on the passport. The shell header, tab bar, toasts and toolbar are hidden (`data-print-hide`, `print:hidden`), and the sections avoid page breaks. Checked by printing through Edge (`Page.printToPDF`, A4, CSS page size): with and without the QR box it is 1 page, and the render was inspected.
+- **Share dialog** (`passport/ShareDialog.tsx`):
+  - The exact explanation sentence from the spec.
+  - Expiry choice (2, 8 or 24 hours) and "Create link".
+  - The CloudNotice "Uploading the encrypted passport", in the dialog and in the shell, while `sharing.create` runs.
+  - A QR code drawn as SVG with `qrcode`'s `toString(url, { type: 'svg' })`, which needs no canvas and prints sharply.
+  - The expiry in local time, the link in a read-only field, and Copy link (falls back to selecting the text when the clipboard is unavailable).
+  - Revoke, and a list of other active links, each with Revoke.
+- **Shared view (`/share/:id`, 7.10):**
+  - No shell, no navigation, and no requests beyond `sharing.open`.
+  - The key comes from `location.hash` and is never put anywhere else.
+  - States: loading ("Opening and decrypting the passport…"), the read-only passport with a Print button, expired, revoked, not found, missing key (`sharing.open` is not called), and any other error with Try again.
+
+Differences from the mockups:
+1. **The changed row's footnote.** The mockup's line about a 5 mg strip "still in the home inventory" needs data the contract does not have. The app says "The 5 mg strength is listed as replaced by 10 mg from 28 October."
+2. **Questions card.** It has an "Add" button beside the input, which the mockup lacks; Enter also adds.
+3. **Passport wording.** The flag and change texts come from the services (the mock writes "Possible duplicate ingredient (paracetamol): Dolo 650 and Crocin Advance 500."). The mockup's longer flag sentence would come from the core `buildPassport`.
+4. **The QR box.** It appears only once a share link exists. Before that, there is no QR to show.
+
+Tests (103 in total):
+- **`DiffRow`:** each kind renders its pill and both cells (struck and highlighted values, missing cells, review answers), plus the changed-instructions variant.
+- **Visit:**
+  - the mockup structure and row order;
+  - **answering a review row changes the status count from 1 to "Everything is answered"**, then resolves the item when the Undo window ends;
+  - questions add and remove, and the shared reports toggle;
+  - the no-visit form;
+  - the first-prescription note;
+  - the error state.
+- **Passport:** sections and disclaimer; share with 24 h, QR SVG, link, copy fallback, revoke; the cloud notice while uploading.
+- **Shared view:** **expired when `sharing.open` rejects with `expired`**; revoked; not found; missing key (no call); opening a link created on the device.
