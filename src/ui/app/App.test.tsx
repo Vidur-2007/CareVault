@@ -1,3 +1,4 @@
+import '../test/configureTesting';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
@@ -22,8 +23,8 @@ describe('app shell', () => {
       expect(within(nav).getByRole('link', { name: /Medicines/ })).toHaveAttribute('aria-current', 'page');
       expect(within(nav).queryByRole('link', { name: /components/i })).toBeNull();
     }
-    // Desktop and phone switchers are both in the DOM; CSS shows one per breakpoint.
-    expect(screen.getAllByRole('button', { name: /Profile: Ramesh Iyer, Father, 71/ })).toHaveLength(2);
+    // Phone, tablet and desktop switchers are all in the DOM; CSS shows one per breakpoint.
+    expect(screen.getAllByRole('button', { name: /Profile: Ramesh Iyer, Father, 71/ })).toHaveLength(3);
   });
 
   it('navigates between sections', async () => {

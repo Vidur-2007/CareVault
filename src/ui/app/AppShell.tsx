@@ -35,7 +35,16 @@ export function AppShell() {
       </a>
       <header className="sticky top-0 z-30">
         <div className="hidden md:block">
-          <TopNav items={NAV_ITEMS} right={loading ? <Skeleton className="h-12 w-60 rounded-full" /> : switcher(false)} />
+          <TopNav items={NAV_ITEMS} right={
+              loading ? (
+                <Skeleton className="h-12 w-40 rounded-full lg:w-60" />
+              ) : (
+                <>
+                  <div className="lg:hidden">{switcher(true)}</div>
+                  <div className="hidden lg:block">{switcher(false)}</div>
+                </>
+              )
+            } />
         </div>
         <div className="flex h-[72px] items-center justify-between border-b border-line bg-surface px-5 md:hidden">
           <Link to="/" className="rounded-button">

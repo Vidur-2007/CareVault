@@ -2,9 +2,9 @@
 // for the life of the toast (5 s) and sent to review.resolve only when the toast closes
 // without Undo. Leaving the screen or the page sends held answers straight away.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ReviewResolution } from '../../../contract/types';
-import { toServiceError } from '../../hooks/toServiceError';
-import { useServices, useToast } from '../../hooks/useContexts';
+import type { ReviewResolution } from '../../contract/types';
+import { toServiceError } from './toServiceError';
+import { useServices, useToast } from './useContexts';
 
 interface Held {
   resolution: ReviewResolution;

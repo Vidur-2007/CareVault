@@ -62,3 +62,71 @@ Remaining differences:
 5. **Phone below the fold.** The mockup shows only the top of the page. Below the cards, the app follows UI spec §9: "Since the last visit", then the recent records, stacked.
 
 Tests: Review covers the three cards and the sentence; Still taking, Stopped (with the dialog, and cancel), Add to records and Undo; empty and error states. Welcome covers validation and focus, creating a profile, and the `validateProfile` unit cases. The copy variants are unit-tested. 48 tests in total.
+
+## Phase 3: Medicines, scan flow, medicine detail (2026-11-18)
+
+Built:
+- **Medicines (`/medicines`, 7.3)** has:
+  - The title, the explanation and "Scan a medicine".
+  - Four stat tiles.
+  - A duplicate card per `IngredientTotal`.
+  - The Needs confirmation, Found at home, Confirmed current and Previous or stopped sections.
+  - Loading, empty and error states.
+- **The duplicate card** (`screens/medicines/DuplicateCard.tsx`):
+  - It shows the products side by side.
+  - It shows the "If both are taken as entered" total only when `complete` is true. Otherwise it shows "Add how often each is taken to see a total" and the known parts, with no number.
+  - The exact safety sentence is always shown.
+  - "Add to questions for the doctor" does nothing if the question is already on the visit, and says so.
+  - "He only takes one of these" opens a choice of which product is taken; the others are marked stopped.
+  - Arriving at `/medicines#possible-duplicates` scrolls to it.
+- **Last change** in the Confirmed current table comes from each medicine's history. A change on or after the last visit's prescription date gets a pill ("5 mg to 10 mg, 28 Oct", "Added 28 Oct"); anything older reads "No change since …".
+- **Scan (`/medicines/scan`, 7.4)** has four steps: Photo, Reading, Check, Done.
+  - **Reading** always runs on the device first (`allowCloud: false`) and shows "On this device".
+  - **`cloud_consent_required`** opens the consent panel, with "Send this photo" and "Enter by hand". Nothing is sent until "Send this photo" is pressed. While the photo is sent, the shell's CloudNotice reads "Sending this photo to the cloud reader".
+  - **Read errors** offer Retry, Enter by hand, or Take another photo.
+  - **Saving** keeps the photo as a record ("Photo of Dolo 650", type Other, source scan), so the original is always kept. It then adds the medicine as found at home, and confirms it when "Save and confirm he takes it" is chosen.
+  - **Done** reports a duplicate the new medicine created, with a link to the card.
+- **The reusable confirm form** (`components/lineForm/`):
+  - `LineConfirmForm` puts the source viewer beside the editable fields. "Check this" is shown on every extracted field until that field is edited, "Everything matches the original" is pressed, or the line is saved.
+  - Warnings appear under the field they are about (`warningsByField`); anything unmatched goes in a box at the top.
+  - Numbers are never guessed: "650mg" is an error, not 650.
+  - Phase 4 can use `LineConfirmForm` per prescription line, or `useLineDraft` with `LineFields` beside a single `SourceViewer`.
+- **Medicine detail (`/medicines/:id`, 7.5)** has:
+  - The name, pills, ingredients, instruction, per-day count, prescriber and source link, plus the replacement link for replaced medicines.
+  - The history timeline, newest first, with document links.
+  - Actions by status:
+    - found at home: confirm, check details, mark stopped;
+    - needs confirmation: still taking, stopped, ask the doctor;
+    - confirmed: edit details (opens the confirm form in a Sheet), mark stopped;
+    - stopped: taken again.
+  - "Stopped" always asks first.
+- **Atorvastatin answers** on Medicines and detail use the same Undo mechanism as Review when a review item is open. `useDeferredResolutions` moved to `src/ui/hooks`.
+
+Responsive check: screenshots at 390, 768 and 1280 px (headless Edge, DevTools emulation) of Medicines, the scan confirm step and the detail page. Fixes made from them:
+- **Top bar:** below 1024 px it uses tighter spacing and the compact profile switcher. It overflowed at 768.
+- **Medicine rows and the Confirmed current table** switch to their wide layout at 900 px, with two-column stacked cards on tablets. The table was cramped at 768.
+- **Confirm form:** strength and unit stack on phones, so the "Check this" markers no longer misalign the inputs.
+- **Ingredient line:** a medicine row no longer repeats its own name as the ingredient line.
+
+Differences from `CareVault-Medicines.png`:
+1. **Product line in the duplicate card.** The mockup says "Label: up to 3 tablets a day · found at home". The app says "Entered: 3 tablets a day · found at home". `dosesPerDay` is what the caregiver entered, not the pack label, and the contract has no label-maximum field.
+2. **Atorvastatin's pill.** The mockup shows "Found at home". The app shows "Needs confirmation", per the pill table in UI spec §3 and its status.
+3. **Found at home section.** The app has it, as UI spec 7.3 requires. The mockup has no such section, but the sample has Dolo 650 and Crocin Advance 500 at home.
+4. **Instruction wording.** The Atorvastatin row reads "1 tablet, night · not on Dr. Rao's prescription of 28 Oct". The mockup's "One tablet at night" is reworded; the app shows the instruction as entered.
+
+Tests (73 in total):
+- The duplicate card with a complete and an incomplete total, the exact safety sentence, and the actions.
+- Extracted markers: cleared by editing one field, by "Everything matches the original", and on save; warnings under fields; errors and focus.
+- The scan flow:
+  - on-device read;
+  - the consent panel on `cloud_consent_required` with no cloud call before the click;
+  - the cloud notice while sending;
+  - "Enter by hand" never sends;
+  - saving keeps the photo and reports the duplicate;
+  - the read error state.
+- Medicines: sections, counts and Last change; Still taking resolving the review item; "only one of these".
+- Detail: details, source and history; mark stopped; not found.
+
+Test notes:
+- UI tests import `src/ui/test/configureTesting.ts`, which raises Testing Library's `findBy` timeout to 4 s; the 1 s default flaked on a busy machine. The frozen `src/test/setup.ts` is unchanged.
+- Review tests pin `Date` to 14 Nov 2026, 09:00. Since the real date passed 14 Nov, "on Wednesday" became "today".

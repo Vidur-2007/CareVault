@@ -23,9 +23,11 @@ export function MedicineRow({ medicine, prescriberName, detail, actions, linked 
     <span className="font-semibold text-ink md:text-[18px]">{medicine.productName}</span>
   );
   const meta = [medicine.instruction || null, prescriberName ?? null].filter(Boolean).join(' · ');
+  const ingredients = ingredientLine(medicine.ingredients);
+  const showIngredients = ingredients.toLowerCase() !== medicine.productName.toLowerCase();
 
   return (
-    <div className={cx('flex flex-col gap-4 rounded-card-sm border border-line bg-surface p-[18px] shadow-card md:flex-row md:items-center md:rounded-card md:px-7 md:py-6', className)}>
+    <div className={cx('flex flex-col gap-4 rounded-card-sm border border-line bg-surface p-[18px] shadow-card wide:flex-row wide:items-center md:rounded-card md:px-7 md:py-6', className)}>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           {linked ? (
@@ -38,7 +40,7 @@ export function MedicineRow({ medicine, prescriberName, detail, actions, linked 
           {showPill && <Pill spec={medicineStatusPill(medicine)} />}
           {medicine.fieldState === 'extracted' && <Pill tone="check">Check this</Pill>}
         </div>
-        <p className="mt-1 text-secondary text-ink-3 md:text-body-sm">{ingredientLine(medicine.ingredients)}</p>
+        {showIngredients && <p className="mt-1 text-secondary text-ink-3 md:text-body-sm">{ingredients}</p>}
         {(meta || detail) && (
           <p className="mt-1 text-ink-2">
             {meta}
@@ -47,7 +49,7 @@ export function MedicineRow({ medicine, prescriberName, detail, actions, linked 
           </p>
         )}
       </div>
-      {actions && <div className="grid grid-cols-2 gap-3 md:flex md:shrink-0 md:flex-wrap md:justify-end">{actions}</div>}
+      {actions && <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap wide:shrink-0 wide:justify-end">{actions}</div>}
     </div>
   );
 }
