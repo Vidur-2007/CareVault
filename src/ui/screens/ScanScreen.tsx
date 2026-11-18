@@ -1,10 +1,11 @@
 // Scan a medicine, UI spec 7.4: capture -> reading -> confirm -> done, with the cloud-consent branch.
-import { ArrowLeft, CircleCheck, CloudUpload, Lightbulb, LoaderCircle, PencilLine } from 'lucide-react';
+import { ArrowLeft, CircleCheck, Lightbulb, LoaderCircle, PencilLine } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import type { ExtractedLine, ExtractionCandidate } from '../../contract/types';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { CloudConsentPanel } from '../components/CloudConsentPanel';
 import { CloudNotice } from '../components/CloudNotice';
 import { ErrorPanel } from '../components/ErrorPanel';
 import { FileDrop } from '../components/FileDrop';
@@ -154,24 +155,14 @@ export function ScanScreen() {
         )}
 
         {step.name === 'consent' && (
-          <Card as="section" aria-labelledby="consent-title" className="mx-auto max-w-xl">
-            <CloudUpload aria-hidden className="size-8 text-blue-ink" />
-            <h2 id="consent-title" className="mt-3 font-sans text-card-sm font-semibold md:text-card">
-              This photo is hard to read on the device. Send it to the cloud reader?
-            </h2>
-            <p className="mt-3 text-ink-2">
-              Only this photo is sent, to read the printed text. Nothing else from this device goes with it. You will check every field
-              before anything is saved.
-            </p>
-            {step.sending && <CloudNotice message={CLOUD_SENDING_MESSAGE} className="mt-4 rounded-panel" />}
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <Button onClick={() => void sendToCloud(step.file)} loading={step.sending}>
-                Send this photo
-              </Button>
-              <Button variant="secondary" onClick={() => toConfirm(step.file, null)} disabled={step.sending}>
-                Enter by hand
-              </Button>
-            </div>
+          <Card className="mx-auto max-w-xl">
+            <CloudConsentPanel
+              what="photo"
+              sending={step.sending}
+              sendingMessage={CLOUD_SENDING_MESSAGE}
+              onSend={() => void sendToCloud(step.file)}
+              onManual={() => toConfirm(step.file, null)}
+            />
           </Card>
         )}
 

@@ -4,7 +4,7 @@ import type { FormEvent, ReactNode } from 'react';
 import type { ExtractedLine } from '../../../contract/types';
 import { Button } from '../Button';
 import { SourceViewer } from '../SourceViewer';
-import { fieldOrder, lineFieldId, validateDraft } from './lineDraft';
+import { focusFirstLineError } from './lineDraft';
 import { LineFields } from './LineFields';
 import { useLineDraft } from './useLineDraft';
 
@@ -50,9 +50,7 @@ export function LineConfirmForm({
   const run = (actionId: string) => {
     const result = state.submit();
     if (!result) {
-      const { errors } = validateDraft(state.draft);
-      const first = fieldOrder(state.draft).find((path) => errors[path]);
-      if (first) document.getElementById(lineFieldId(idPrefix, first))?.focus();
+      focusFirstLineError(state.draft, idPrefix);
       return;
     }
     state.confirmAll();

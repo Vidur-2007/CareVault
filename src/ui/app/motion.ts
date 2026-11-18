@@ -11,7 +11,8 @@ export const STAGGER_CAP = 8;
 type MotionDivProps = ComponentProps<typeof motion.div>;
 /** Props spread onto a motion element: {...presets.page}. */
 export type Enter = Required<Pick<MotionDivProps, 'initial' | 'animate' | 'exit' | 'transition'>>;
-export type Reveal = Required<Pick<MotionDivProps, 'initial' | 'whileInView' | 'viewport' | 'transition'>>;
+/** Empty when IntersectionObserver is missing or motion is reduced: content simply appears. */
+export type Reveal = Pick<MotionDivProps, 'initial' | 'whileInView' | 'viewport' | 'transition'>;
 export type Press = Pick<MotionDivProps, 'whileTap'>;
 
 export interface MotionPresets {
@@ -37,6 +38,10 @@ export function buildPresets(reduced: boolean): MotionPresets {
     transition: { duration: reduced ? Math.min(duration, 0.12) : duration, ease: EASE },
   });
 
+  // whileInView needs IntersectionObserver; without it, content simply appears.
+  const canObserve = typeof IntersectionObserver !== 'undefined';
+  const noReveal: Reveal = {};
+
   if (reduced) {
     return {
       reduced,
@@ -49,7 +54,7 @@ export function buildPresets(reduced: boolean): MotionPresets {
       sheetDesktop: fade(0.12),
       backdrop: fade(0.12),
       press: {},
-      reveal: { initial: { opacity: 1 }, whileInView: { opacity: 1 }, viewport: { once: true, amount: 0.2 }, transition: { duration: 0 } },
+      reveal: noReveal,
       toast: fade(0.12),
     };
   }
@@ -97,12 +102,14 @@ export function buildPresets(reduced: boolean): MotionPresets {
     },
     backdrop: fade(0.18),
     press: { whileTap: { scale: 0.98 } },
-    reveal: {
-      initial: { opacity: 0, y: 8 },
-      whileInView: { opacity: 1, y: 0 },
-      viewport: { once: true, amount: 0.2 },
-      transition: { duration: 0.24, ease: EASE },
-    },
+    reveal: canObserve
+      ? {
+          initial: { opacity: 0, y: 8 },
+          whileInView: { opacity: 1, y: 0 },
+          viewport: { once: true, amount: 0.2 },
+          transition: { duration: 0.24, ease: EASE },
+        }
+      : noReveal,
     toast: {
       initial: { opacity: 0, y: 12 },
       animate: { opacity: 1, y: 0 },

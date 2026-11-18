@@ -1,7 +1,17 @@
 // Lazy pdf.js loading: the library and its worker are fetched only when a PDF is first shown.
+//
+// Worker setup (pdfjs-dist 6): GlobalWorkerOptions.workerSrc must point at the worker file of the
+// exact same version. Under Vite the `?url` import emits build/pdf.worker.min.mjs as an asset and
+// returns its URL. The optional renderer worker (GlobalWorkerOptions.rendererSrc) is not set, so
+// pages render on the main thread, which is fine for thumbnails and single-page previews.
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 let ready: Promise<typeof import('pdfjs-dist')> | null = null;
+
+/** pdf.js needs DOMMatrix and a 2D canvas; jsdom and very old browsers have neither. */
+export function canRenderPdf(): boolean {
+  return typeof window !== 'undefined' && typeof window.DOMMatrix === 'function';
+}
 
 function loadPdfJs() {
   ready ??= Promise.all([import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url')]).then(([pdfjs, worker]) => {
@@ -12,12 +22,13 @@ function loadPdfJs() {
 }
 
 export async function openPdf(file: Blob): Promise<PDFDocumentProxy> {
+  if (!canRenderPdf()) throw new Error('PDF preview is not available in this browser.');
   const pdfjs = await loadPdfJs();
   const data = new Uint8Array(await file.arrayBuffer());
   return pdfjs.getDocument({ data }).promise;
 }
 
-/** Renders one page into the canvas, fitted to `width` CSS pixels. Returns the page count. */
+/** Renders one page into the canvas, fitted to `width` CSS pixels times `zoom`. */
 export async function renderPdfPage(
   pdf: PDFDocumentProxy,
   pageNumber: number,
