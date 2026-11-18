@@ -16,7 +16,7 @@ export function StepIndicator({ current }: { current: number }) {
               aria-hidden
               className={cx(
                 'flex size-7 items-center justify-center rounded-full text-min font-bold',
-                done ? 'bg-teal text-white' : active ? 'bg-teal-tint text-teal-ink ring-2 ring-teal' : 'bg-grey-tint text-ink-3',
+                done ? 'bg-teal text-white' : active ? 'bg-teal-tint text-teal-ink ring-2 ring-teal' : 'bg-grey-tint text-ink-2',
               )}
             >
               {done ? <Check className="size-4" /> : i + 1}

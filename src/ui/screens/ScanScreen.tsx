@@ -15,6 +15,7 @@ import { Pill } from '../components/Pill';
 import { POSSIBLE_DUPLICATE } from '../components/pills';
 import { toServiceError } from '../hooks/toServiceError';
 import { useCloudNotice, useProfile, useServices } from '../hooks/useContexts';
+import { useServiceQuery } from '../hooks/useServiceQuery';
 import { formatNumber } from '../lib/format';
 import { pronounsFor, verb } from '../lib/pronouns';
 import { today } from '../lib/today';
@@ -41,6 +42,9 @@ export function ScanScreen() {
   const pid = profile!.id;
   const pronouns = pronounsFor(profile!.relation);
   const [step, setStep] = useState<Step>({ name: 'capture' });
+  // Settings > Cloud reading: when on, a hard-to-read photo is sent without asking (the notice still shows).
+  const cloudSetting = useServiceQuery((s) => s.settings.get(), []);
+  const sendWithoutAsking = cloudSetting.data?.cloudReadingAllowed ?? false;
   const [saving, setSaving] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   // Each read gets a token; results for an abandoned read (Cancel, a new photo) are ignored.
@@ -66,7 +70,10 @@ export function ScanScreen() {
     } catch (err) {
       if (token !== readToken.current) return;
       const e = toServiceError(err);
-      if (e.code === 'cloud_consent_required') setStep({ name: 'consent', file, sending: false });
+      if (e.code === 'cloud_consent_required') {
+        if (sendWithoutAsking) void sendToCloud(file);
+        else setStep({ name: 'consent', file, sending: false });
+      }
       else setStep({ name: 'read-error', file, message: e.message });
     }
   };

@@ -13,6 +13,7 @@ import { FileDrop } from '../../components/FileDrop';
 import { Sheet } from '../../components/Sheet';
 import { toServiceError } from '../../hooks/toServiceError';
 import { useCloudNotice, useProfile, useServices, useToast } from '../../hooks/useContexts';
+import { useServiceQuery } from '../../hooks/useServiceQuery';
 import { formatDate } from '../../lib/format';
 import { today as getToday } from '../../lib/today';
 import { PrescriptionLinesStep } from './PrescriptionLinesStep';
@@ -58,6 +59,9 @@ export function AddRecordSheet({ open, onClose }: AddRecordSheetProps) {
   const pid = profile!.id;
   const today = getToday();
   const [step, setStep] = useState<Step>({ name: 'select' });
+  // Settings > Cloud reading: when on, a hard-to-read document is sent without asking (the notice still shows).
+  const cloudSetting = useServiceQuery((s) => s.settings.get(), [], { enabled: open });
+  const sendWithoutAsking = cloudSetting.data?.cloudReadingAllowed ?? false;
   // Results of an abandoned run (sheet closed, new file chosen) are ignored.
   const run = useRef(0);
 
@@ -78,7 +82,10 @@ export function AddRecordSheet({ open, onClose }: AddRecordSheetProps) {
     } catch (err) {
       if (token !== run.current) return;
       const e = toServiceError(err);
-      if (e.code === 'cloud_consent_required') setStep({ name: 'consent', file, sending: false });
+      if (e.code === 'cloud_consent_required') {
+        if (sendWithoutAsking && !allowCloud) void read(file, true);
+        else setStep({ name: 'consent', file, sending: false });
+      }
       else if (e.code === 'unsupported_file') setStep({ name: 'failed', message: 'Please choose a photo or a PDF.', retry: () => setStep({ name: 'select' }) });
       else setStep({ name: 'details', file, candidate: null, readNote: `The document could not be read (${e.message}).` });
     }
