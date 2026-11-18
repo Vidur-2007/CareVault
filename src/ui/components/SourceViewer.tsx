@@ -20,7 +20,7 @@ export function SourceViewer({ file, label, children, className }: SourceViewerP
   return (
     <div className={cx('grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-8', className)}>
       <figure className="min-w-0">
-        <div className="overflow-hidden rounded-panel border border-line bg-surface-muted">
+        <div className="max-h-[55dvh] overflow-auto rounded-panel border border-line bg-surface-muted md:max-h-none md:overflow-hidden">
           {file === null ? (
             <div role="status" aria-label="Loading the original">
               <Skeleton className="aspect-[3/4] w-full rounded-none" />

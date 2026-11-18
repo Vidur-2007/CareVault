@@ -1,17 +1,17 @@
 // Scan a medicine, UI spec 7.4: capture -> reading -> confirm -> done, with the cloud-consent branch.
-import { ArrowLeft, CircleCheck, Lightbulb, LoaderCircle, PencilLine } from 'lucide-react';
+import { ArrowLeft, CircleCheck, Lightbulb, PencilLine } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import type { ExtractedLine, ExtractionCandidate } from '../../contract/types';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { CloudConsentPanel } from '../components/CloudConsentPanel';
-import { CloudNotice } from '../components/CloudNotice';
 import { ErrorPanel } from '../components/ErrorPanel';
 import { FileDrop } from '../components/FileDrop';
 import { LineConfirmForm } from '../components/lineForm/LineConfirmForm';
 import { EMPTY_LINE } from '../components/lineForm/lineDraft';
 import { Pill } from '../components/Pill';
+import { ReadingProgress } from '../components/ReadingProgress';
 import { POSSIBLE_DUPLICATE } from '../components/pills';
 import { toServiceError } from '../hooks/toServiceError';
 import { useCloudNotice, useProfile, useServices } from '../hooks/useContexts';
@@ -148,16 +148,17 @@ export function ScanScreen() {
         )}
 
         {step.name === 'reading' && (
-          <Card className="mx-auto max-w-xl text-center">
-            <div role="status" className="flex flex-col items-center gap-4 py-4">
-              <LoaderCircle aria-hidden className="size-10 animate-spin text-teal" />
-              <p className="text-card-sm font-semibold text-ink">Reading on this device</p>
-              <p className="text-ink-3">The first scan can take a few seconds while the reader loads.</p>
-            </div>
-            <CloudNotice message={null} showOnDevice className="mt-2 justify-center rounded-panel" />
-            <Button variant="secondary" className="mt-5" onClick={restart}>
-              Cancel
-            </Button>
+          <Card className="mx-auto max-w-xl">
+            <ReadingProgress
+              what="photo"
+              fileName={step.file.name}
+              onManual={() => {
+                const file = step.file;
+                readToken.current += 1; // ignore the read still running
+                toConfirm(file, null);
+              }}
+              onCancel={restart}
+            />
           </Card>
         )}
 

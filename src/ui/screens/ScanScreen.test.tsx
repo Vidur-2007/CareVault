@@ -101,4 +101,23 @@ describe('Scan a medicine', () => {
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Enter by hand' })).toBeInTheDocument();
   });
+
+  it('a slow read can be skipped with "Enter by hand instead", and its late result is ignored', async () => {
+    const services = createMockServices({ delayMs: 0, fail: () => null });
+    let finish: () => void = () => {};
+    const original = services.reading.read.bind(services.reading);
+    vi.spyOn(services.reading, 'read').mockImplementation(async (file, opts) => {
+      await new Promise<void>((r) => (finish = r));
+      return original(file, opts);
+    });
+    render(<App services={services} router={createMemoryRouter(routes, { initialEntries: ['/medicines/scan'] })} />);
+    await choosePhoto();
+    expect(await screen.findByText('Reading on this device')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Enter by hand instead' }));
+    expect(await screen.findByRole('heading', { name: 'Enter the medicine' })).toBeInTheDocument();
+    finish();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByRole('heading', { name: 'Enter the medicine' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Product name')).toHaveValue('');
+  });
 });
