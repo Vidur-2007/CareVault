@@ -16,3 +16,8 @@ export function pronounsFor(relation: string | null | undefined): Pronouns {
   if (SHE.has(r)) return { subject: 'she', object: 'her', possessive: 'her', standalone: 'hers' };
   return { subject: 'they', object: 'them', possessive: 'their', standalone: 'theirs' };
 }
+
+/** 'he takes' / 'they take': adds the third-person s except for they. */
+export function verb(p: Pronouns, base: string): string {
+  return p.subject === 'they' ? base : `${base}s`;
+}

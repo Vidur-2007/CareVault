@@ -1,7 +1,8 @@
+import '../test/configureTesting';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IDS } from '../../contract/fixtures/sampleCase';
 import { App } from '../app/App';
 import { routes } from '../app/routes';
@@ -22,6 +23,15 @@ async function closeToast() {
   await userEvent.click(await screen.findByRole('button', { name: 'Close message' }));
 }
 
+// The sample case is set on Saturday 14 November 2026, in the morning. Only Date is faked,
+// so timers and user events run normally.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-14T09:00:00') });
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe('Review screen', () => {
   it('shows the three open items, the header sentence and the side panels', async () => {
     renderReview();
@@ -30,6 +40,7 @@ describe('Review screen', () => {
     expect(screen.getByRole('heading', { name: 'Add this HbA1c report to his records?' })).toBeInTheDocument();
     expect(screen.getByText("Three things need your answer before your father's cardiology visit on Wednesday.")).toBeInTheDocument();
     expect(screen.getByText('3 open')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /Good morning, Anjali/ })).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Since the last visit on 28 October' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Wednesday, 18 November' })).toBeInTheDocument();
     const recent = screen.getByRole('region', { name: 'Recently added records' });

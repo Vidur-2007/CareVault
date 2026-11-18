@@ -22,7 +22,7 @@ import { NextVisitPanel } from './review/NextVisitPanel';
 import { RecentRecords } from './review/RecentRecords';
 import { ReviewHeader } from './review/ReviewHeader';
 import { SinceLastVisit } from './review/SinceLastVisit';
-import { useDeferredResolutions } from './review/useDeferredResolutions';
+import { useDeferredResolutions } from '../hooks/useDeferredResolutions';
 
 function medicineNames(item: ReviewItem, medicines: Medicine[] | undefined): string {
   const names = item.medicineIds.map((id) => medicines?.find((m) => m.id === id)?.productName).filter(Boolean);
