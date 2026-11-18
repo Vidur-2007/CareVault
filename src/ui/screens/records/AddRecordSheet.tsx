@@ -7,9 +7,9 @@ import { useNavigate } from 'react-router';
 import type { DocumentRecord, ExtractedLine, ExtractionCandidate } from '../../../contract/types';
 import { Button } from '../../components/Button';
 import { CloudConsentPanel } from '../../components/CloudConsentPanel';
-import { CloudNotice } from '../../components/CloudNotice';
 import { ErrorPanel } from '../../components/ErrorPanel';
 import { FileDrop } from '../../components/FileDrop';
+import { ReadingProgress } from '../../components/ReadingProgress';
 import { Sheet } from '../../components/Sheet';
 import { toServiceError } from '../../hooks/toServiceError';
 import { useCloudNotice, useProfile, useServices, useToast } from '../../hooks/useContexts';
@@ -182,12 +182,15 @@ export function AddRecordSheet({ open, onClose }: AddRecordSheetProps) {
       break;
     case 'reading':
       body = (
-        <div role="status" className="flex flex-col items-center gap-4 py-8 text-center">
-          <LoaderCircle aria-hidden className="size-10 animate-spin text-teal" />
-          <p className="font-semibold text-ink">Reading on this device</p>
-          <p className="text-ink-3 break-all">{step.file.name}</p>
-          <CloudNotice message={null} showOnDevice className="rounded-panel" />
-        </div>
+        <ReadingProgress
+          what="document"
+          fileName={step.file.name}
+          onManual={() => {
+            const file = step.file;
+            run.current += 1; // ignore the read still running
+            setStep({ name: 'details', file, candidate: null, readNote: 'You chose to enter the details by hand.' });
+          }}
+        />
       );
       break;
     case 'consent':

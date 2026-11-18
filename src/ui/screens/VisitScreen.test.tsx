@@ -109,6 +109,18 @@ describe('Visit, appointment mode', () => {
     expect(screen.getAllByText('+ Added')).toHaveLength(3);
   });
 
+  it('does not offer pack photos kept from Scan as reports to share', async () => {
+    const services = createMockServices({ delayMs: 0, fail: () => null });
+    const { record } = await services.documents.add(IDS.profile, new Blob(['png'], { type: 'image/png' }), {
+      type: 'other', title: 'Photo of Dolo 650', documentDate: '2026-11-14', source: 'scan', prescriberId: null,
+    });
+    await services.documents.confirm(record.id);
+    renderAt('/visit', services);
+    const reports = await screen.findByRole('region', { name: 'Reports to share' });
+    expect(within(reports).queryByText(/Photo of Dolo 650/)).toBeNull();
+    expect(within(reports).getByRole('checkbox', { name: 'Lipid profile, 12 Nov' })).toBeInTheDocument();
+  });
+
   it('shows an error when the visit cannot be loaded', async () => {
     const services = createMockServices({ delayMs: 0, fail: () => null });
     vi.spyOn(services.visits, 'next').mockRejectedValue(new ServiceError('network', 'Offline'));

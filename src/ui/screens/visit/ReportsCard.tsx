@@ -16,7 +16,8 @@ function ordered(documents: DocumentRecord[]): DocumentRecord[] {
 
 export function ReportsCard({ visit, documents }: { visit: Visit; documents: DocumentRecord[] }) {
   const save = useServiceAction((s, ids: string[]) => s.visits.setSharedDocuments(visit.id, ids));
-  const shareable = ordered(documents.filter((d) => d.type !== 'prescription'));
+  // Prescriptions are compared, not shared; pack photos kept from Scan (type other, source scan) are not reports.
+  const shareable = ordered(documents.filter((d) => d.type !== 'prescription' && !(d.type === 'other' && d.source === 'scan')));
 
   const toggle = (id: string, on: boolean) => {
     const next = on ? [...visit.sharedDocumentIds, id] : visit.sharedDocumentIds.filter((x) => x !== id);
