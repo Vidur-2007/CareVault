@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { toString as qrToString } from 'qrcode';
+import { toString as qrToString } from 'qrcode/lib/browser.js';
 import { cx } from '../lib/cx';
 
 /** A QR code drawn as SVG with the qrcode library (sharp on screen and in print). */
