@@ -29,11 +29,12 @@ export function AppShell() {
     <div className="flex min-h-dvh flex-col">
       <a
         href="#main"
+        data-print-hide
         className="sr-only z-50 rounded-button bg-teal px-4 py-3 font-semibold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
       >
         Skip to content
       </a>
-      <header className="sticky top-0 z-30">
+      <header data-print-hide className="sticky top-0 z-30 print:hidden">
         <div className="hidden md:block">
           <TopNav items={NAV_ITEMS} right={
               loading ? (
@@ -56,7 +57,7 @@ export function AppShell() {
       </header>
 
       {/* Bottom padding clears the phone tab bar and the home indicator, so the last card is never hidden. */}
-      <main id="main" tabIndex={-1} className="flex-1 pb-[calc(7rem+env(safe-area-inset-bottom))] outline-none md:pb-16">
+      <main id="main" tabIndex={-1} className="flex-1 pb-[calc(7rem+env(safe-area-inset-bottom))] outline-none md:pb-16 print:pb-0">
         {loading ? (
           <div className="page-gutter py-8 md:py-12">
             <Skeleton className="mb-6 h-10 w-2/3 max-w-md" />

@@ -84,7 +84,8 @@ function ToastViewport({ items, onAction, onClose }: { items: ToastItem[]; onAct
     <div
       aria-live="polite"
       role="status"
-      className="pointer-events-none fixed inset-x-0 bottom-[92px] z-50 flex flex-col items-center gap-2 px-4 md:bottom-6"
+      data-print-hide
+      className="pointer-events-none fixed inset-x-0 bottom-[92px] z-50 flex flex-col items-center gap-2 px-4 md:bottom-6 print:hidden"
     >
       <AnimatePresence initial={false}>
         {items.map((item) => (

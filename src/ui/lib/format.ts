@@ -86,3 +86,35 @@ export function initials(name: string): string {
 export function ageFrom(birthYear: number | null, today: ISODate): number | null {
   return birthYear === null ? null : Number(today.slice(0, 4)) - birthYear;
 }
+
+/** '2026-11-18T10:30:00+05:30' -> 'Wednesday, 18 Nov, 10:30 am' (the appointment-mode pill). */
+export function formatVisitPill(iso: ISODateTime): string {
+  return `${formatWeekday(iso)}, ${formatShortDate(iso)}, ${formatTime(iso)}`;
+}
+
+/** An instant (e.g. a link expiry) in the device's local time: 'Wednesday, 18 November, 8:00 pm'. */
+export function formatLocalDateTime(iso: ISODateTime): string {
+  const d = new Date(iso);
+  const h = d.getHours();
+  const time = `${h % 12 === 0 ? 12 : h % 12}:${String(d.getMinutes()).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+  return `${WEEKDAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}, ${time}`;
+}
+
+/** Date and time typed into the form, as ISO 8601 with the device's offset: '2026-11-25T10:30:00+05:30'. */
+export function localDateTimeIso(date: string, time: string): ISODateTime {
+  const d = new Date(`${date}T${time}:00`);
+  const offset = -d.getTimezoneOffset();
+  const sign = offset >= 0 ? '+' : '-';
+  const hh = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+  const mm = String(Math.abs(offset) % 60).padStart(2, '0');
+  return `${date}T${time}:00${sign}${hh}:${mm}`;
+}
+
+/** An instant in the device's local time, short: '18 Nov, 8 pm' or '19 Nov, 6:07 am'. */
+export function formatLocalShort(iso: ISODateTime): string {
+  const d = new Date(iso);
+  const h = d.getHours();
+  const minutes = d.getMinutes();
+  const time = `${h % 12 === 0 ? 12 : h % 12}${minutes ? `:${String(minutes).padStart(2, '0')}` : ''} ${h < 12 ? 'am' : 'pm'}`;
+  return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}, ${time}`;
+}
