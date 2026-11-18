@@ -165,7 +165,7 @@ export function RecordsScreen() {
                 )}
               >
                 {c.label}{' '}
-                <span className={cx('rounded-full px-2 text-min', category === c.key ? 'bg-teal text-white' : 'bg-grey-tint text-ink-3')}>
+                <span className={cx('rounded-full px-2 text-min', category === c.key ? 'bg-teal text-white' : 'bg-grey-tint text-ink-2')}>
                   {counts[c.key]}
                 </span>
               </button>

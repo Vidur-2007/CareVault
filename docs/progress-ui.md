@@ -238,3 +238,47 @@ Tests (103 in total):
   - the error state.
 - **Passport:** sections and disclaimer; share with 24 h, QR SVG, link, copy fallback, revoke; the cloud notice while uploading.
 - **Shared view:** **expired when `sharing.open` rejects with `expired`**; revoked; not found; missing key (no call); opening a link created on the device.
+
+## Phase 6: Settings, PWA, states, accessibility (2026-11-18)
+
+Built:
+- **Settings (`/settings`, 7.11):**
+  - **Profiles:** list, switch, and add (the welcome form in a Sheet; the profile switcher's "Add a profile" opens it directly).
+  - **Cloud reading:** a toggle with the plain explanation, a `role="switch"`.
+  - **Gmail import:** Connect, the candidate list with Import, the "Access lasts for this session only…" note, and the CloudNotice "Reading your inbox for report attachments" while searching and importing. Imported reports wait in Review as new documents.
+  - **Backup export:** passphrase plus confirmation, at least 8 characters, downloads `carevault-backup-<date>.cvbackup`.
+  - **Backup import:** file plus passphrase, then a ConfirmDialog "Replace all data on this device?". A wrong passphrase shows a field error.
+  - **Sample data:** load the sample profile again.
+  - **About:** where data lives; not medical advice.
+- **What the cloud-reading setting does.** Reading always tries on the device first.
+  - **Off (default):** a hard-to-read photo or document still gets the per-photo consent panel.
+  - **On:** it is sent without the question, and the CloudNotice still shows before each send. This is the "consent toggle plus per-use notice" from overview §2. It applies to both Scan and Add a record.
+- **PWA:**
+  - Icons `public/pwa-192x192.png` and `pwa-512x512.png` (also the maskable icon) and `apple-touch-icon.png`, rendered from the CV mark in Manrope 700 on teal, with the letters inside the maskable safe zone.
+  - `favicon.svg` is now the CV mark instead of the Vite default.
+  - `index.html`: description, Apple touch icon, and `viewport-fit=cover` so the safe-area insets work.
+  - Build check: the manifest lists all three icons; the service worker precaches the shell, the icons and every screen chunk; the navigation fallback denylists `/^\/api\//`; there is no runtime caching of `/api`.
+- **Code splitting:** every screen except Review loads on demand (`React.lazy` behind a labelled fallback). The main chunk went from 727 kB to 249 kB; the build's large-chunk warning is gone.
+- **The four states, tested on every screen** (`src/ui/screensStates.test.tsx`, 26 tests):
+  - **loading:** all non-profile calls never resolve; each screen shows its labelled loading status and no error;
+  - **error:** the mock failure switch for every group except profiles; each screen shows its error panel;
+  - **ready;**
+  - **empty:** a new profile with no data shows Review, Medicines, Records and Visit empty states and an empty passport.
+- **Accessibility pass:**
+  - **Per screen** (tested on every screen, ready and empty, plus Welcome and the shared view): exactly one h1; every input, select and textarea labelled; every button and link named; every image with alt text; a polite live region for toasts.
+  - **Keyboard, in Edge at 1280 px:** Tab 20 times on every route; every focused element had a visible focus ring.
+  - **200% zoom and responsive, in Edge:** every route at 390, 640 (a 1280 px window at 200%), 768 and 1280 px. No horizontal page scroll, no element past the viewport. 44 of 44 route/width pairs were clean, before and after code splitting.
+  - **Contrast** (`src/ui/contrast.test.ts`): every text/background token pair the UI uses is at least 4.5:1. Two places put secondary grey text on the grey tint (4.4:1), the record-chip counts and the inactive scan steps; both now use ink-2.
+  - **Reduced motion:** every preset becomes a fade or nothing (`motion.ts`), CSS animations and transitions are cut under `prefers-reduced-motion`, and `MotionConfig reducedMotion="user"` wraps the app.
+- **A focus bug found by the backup tests, now fixed** (`useFocusTrap`). Closing a dialog returned focus to its trigger after the exit animation, even if an error handler had already focused a field. The caregiver's typing then jumped to the button mid-word. Focus is now returned only if nothing else has taken it.
+- **Architecture test** (`src/ui/architecture.test.ts`): fails if any file under `src/ui` imports `src/core`, by static import, re-export, side-effect import, dynamic `import()` or `require()`. A second test checks the scanner catches each of those forms. The ESLint rule from phase 0 still applies too.
+
+Could not fix in the UI (needs another owner or a frozen file):
+1. **Offline PDF previews.** The pdf.js worker (`.mjs`) is not precached, because `vite.config.ts` is frozen. Request 2 in `docs/contract-requests-ui.md`.
+2. **New doctors.** A prescription from a doctor not yet in the profile cannot be applied: there is no `addPrescriber` in the contract. Request 1.
+3. **The sample visit date.** The sample visit is 18 Nov 2026. With the real services it stops being "next" after that date, before the demo on 24–26 Dec. The mock keeps "today" at 14 Nov; the core seed (or the fixture, through the human) needs a decision.
+4. **Deleting a profile.** Settings cannot delete a profile; the contract has no method for it. Not requested; out of scope for the demo.
+5. **Real Gmail consent.** The Google consent screen and the token model are on the core side. The UI only calls `gmail.connect()` and shows the session note. Not checked against a real Google account yet (phase 7).
+6. **Checks not automated:** a real screen reader and real browser zoom (the 200% check used an equivalent 640 px viewport). To do by hand on a phone during phase 7.
+
+Tests: 158 in total.

@@ -102,7 +102,7 @@ export function ProfileSwitcher({ profiles, current, onSelect, today, compact = 
             ))}
           </ul>
           <Link
-            to="/settings"
+            to="/settings#add-profile"
             onClick={() => setOpen(false)}
             className="mt-1 flex min-h-12 items-center gap-2 rounded-button border-t border-line px-3 font-semibold text-teal hover:bg-surface-muted"
           >

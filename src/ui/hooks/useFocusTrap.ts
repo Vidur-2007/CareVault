@@ -54,7 +54,11 @@ export function useFocusTrap(container: RefObject<HTMLElement | null>, active: b
     return () => {
       document.removeEventListener('keydown', onKeyDown, true);
       document.body.style.overflow = overflow;
-      if (previous && document.contains(previous)) previous.focus();
+      // Give focus back only if nothing else took it meanwhile (e.g. an error handler that focused a
+      // field while the dialog was animating out); otherwise typing would jump away mid-word.
+      const now = document.activeElement;
+      const unclaimed = !now || now === document.body || (node !== null && node.contains(now));
+      if (unclaimed && previous && document.contains(previous)) previous.focus();
     };
   }, [active, container]);
 }
