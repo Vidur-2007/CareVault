@@ -140,3 +140,12 @@ export function warningsByField(warnings: string[], draft: LineDraft): Record<Fi
 export function lineFieldId(idPrefix: string, path: FieldPath): string {
   return `${idPrefix}-${path.replace(/\./g, '-')}`;
 }
+
+/** Moves focus to the first field of the draft that fails validation. Returns true if one was found. */
+export function focusFirstLineError(draft: LineDraft, idPrefix: string): boolean {
+  const { errors } = validateDraft(draft);
+  const first = fieldOrder(draft).find((path) => errors[path]);
+  if (!first) return false;
+  document.getElementById(lineFieldId(idPrefix, first))?.focus();
+  return true;
+}

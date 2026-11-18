@@ -10,10 +10,12 @@ export interface LineFieldsProps {
   /** Prefix for input ids, unique per line on the page. */
   idPrefix: string;
   disabled?: boolean;
+  /** Hint under the product name, e.g. 'As written on the prescription'. */
+  nameHint?: string;
 }
 
 /** The editable fields of one line. Extracted fields carry "Check this" until edited or confirmed. */
-export function LineFields({ state, idPrefix, disabled = false }: LineFieldsProps) {
+export function LineFields({ state, idPrefix, disabled = false, nameHint = 'As printed on the pack' }: LineFieldsProps) {
   const { draft, unchecked, errors, warnings } = state;
   const id = (path: string) => lineFieldId(idPrefix, path);
 
@@ -30,7 +32,7 @@ export function LineFields({ state, idPrefix, disabled = false }: LineFieldsProp
       <Field
         id={id('productName')}
         label="Product name"
-        hint="As printed on the pack"
+        hint={nameHint}
         value={draft.productName}
         onChange={(e) => state.setText('productName', e.target.value)}
         extracted={unchecked.has('productName')}

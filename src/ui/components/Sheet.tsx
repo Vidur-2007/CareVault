@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { useMotionPresets } from '../app/motion';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useIsDesktop } from '../hooks/useMediaQuery';
+import { cx } from '../lib/cx';
 
 export interface SheetProps {
   open: boolean;
@@ -14,6 +15,8 @@ export interface SheetProps {
   description?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
+  /** 'wide' gives the desktop side panel room for a document beside a form. */
+  size?: 'md' | 'wide';
 }
 
 /** Bottom sheet on phones, side panel on desktop. Same focus rules as Dialog. */
@@ -22,7 +25,7 @@ export function Sheet(props: SheetProps) {
   return createPortal(<AnimatePresence>{props.open && <SheetPanel key="sheet" {...props} />}</AnimatePresence>, document.body);
 }
 
-function SheetPanel({ onClose, title, description, children, footer }: SheetProps) {
+function SheetPanel({ onClose, title, description, children, footer, size = 'md' }: SheetProps) {
   const presets = useMotionPresets();
   const desktop = useIsDesktop();
   const ref = useRef<HTMLDivElement>(null);
@@ -41,7 +44,10 @@ function SheetPanel({ onClose, title, description, children, footer }: SheetProp
         aria-describedby={description ? descId : undefined}
         tabIndex={-1}
         {...(desktop ? presets.sheetDesktop : presets.sheetPhone)}
-        className="absolute inset-x-0 bottom-0 flex max-h-[92dvh] flex-col rounded-t-card-sm bg-surface shadow-overlay md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[480px] md:rounded-none md:rounded-l-card"
+        className={cx(
+          'absolute inset-x-0 bottom-0 flex max-h-[92dvh] flex-col rounded-t-card-sm bg-surface shadow-overlay md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:rounded-none md:rounded-l-card',
+          size === 'wide' ? 'md:w-[min(1120px,94vw)]' : 'md:w-[480px]',
+        )}
       >
         <div aria-hidden className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-line md:hidden" />
         <div className="flex items-start gap-3 px-5 pt-4 md:px-7 md:pt-7">

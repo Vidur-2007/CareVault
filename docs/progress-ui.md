@@ -130,3 +130,58 @@ Tests (73 in total):
 Test notes:
 - UI tests import `src/ui/test/configureTesting.ts`, which raises Testing Library's `findBy` timeout to 4 s; the 1 s default flaked on a busy machine. The frozen `src/test/setup.ts` is unchanged.
 - Review tests pin `Date` to 14 Nov 2026, 09:00. Since the real date passed 14 Nov, "on Wednesday" became "today".
+
+## Phase 4: Records vault, timeline, document detail (2026-11-18)
+
+Built:
+- **Records (`/records`, 7.6):**
+  - **Search** by title and type through `documents.search`, 250 ms after typing stops.
+  - **Category chips** with counts (All, Prescriptions, Lab reports, Tests, Discharge summaries, Other).
+  - **A "Starred only" toggle.**
+  - **A Grid / Timeline switch**, remembered on this device.
+  - **Grid:** `DocumentCard`s with first-page thumbnails (`components/DocumentThumbnail.tsx`), star buttons and "Not yet confirmed".
+  - **Timeline:** grouped by month, newest first, with a type icon. The latest prescription from each doctor shows "2 medicine changes found" (added plus changed, the same count as on Review).
+  - **Empty states:** with no records, an invitation to upload that mentions Gmail import in Settings; with no matches, a "Show all records" reset.
+  - **Loading and error states.**
+- **Thumbnails and preview with pdf.js (pdfjs-dist 6.5):**
+  - `GlobalWorkerOptions.workerSrc` is set from the Vite `?url` import of `pdfjs-dist/build/pdf.worker.min.mjs`. That emits the same-version worker as an asset, which is what the current pdf.js bundler example does.
+  - The optional `rendererSrc` (new renderer worker) is not set, so pages render on the main thread.
+  - pdf.js and its worker load only when the first PDF is shown. Thumbnails load only when a card nears the viewport.
+  - Where pdf.js cannot run (no `DOMMatrix`, as in jsdom), an icon and a download link appear instead.
+  - In pdfjs-dist 6, documents are released with `pdf.loadingTask.destroy()`.
+- **Upload sheet (`screens/records/AddRecordSheet.tsx`).** Steps:
+  - **selecting:** pick a PDF or photo.
+  - **reading:** on the device, with "On this device"; the cloud-consent branch reuses the new `components/CloudConsentPanel` (shared with Scan).
+  - **review details:** "Looks like a prescription from Dr. X dated Y", with editable type, title, date and doctor, plus "Check this" on read values.
+  - **saving.**
+  - **duplicate found:** "This looks like a file you already added on <date>", with Discard (removes the new copy) or Keep both.
+  - **saved:** with "Open it" and "Add another".
+  - **failed:** with Retry.
+- **Prescription uploads** continue to `PrescriptionLinesStep`:
+  - One card per extracted line, built from the phase 3 `useLineDraft` and `LineFields`, beside the original in a wide sheet.
+  - Add a line and Remove a line.
+  - "This line matches" clears the line's markers.
+  - On save, every line is validated, the first error is focused, and then `prescriptions.apply` is called. The app then goes to `/visit`, which shows the comparison (the Visit placeholder now renders the latest diff with `DiffRow`; the rest of appointment mode is phase 5).
+- **Document detail (`/records/:id`, 7.7):**
+  - **Preview** (`screens/records/DocumentPreview.tsx`): previous and next page with "Page n of N", zoom from 50 to 300% with a fit button, and a download link to the original. Only the zoomed content scrolls sideways.
+  - **Metadata** and a **Star** toggle.
+  - **Confirm** for pending records, and **Delete** after confirmation. For an emailed record with an open "new document" review item, Confirm and Delete answer that item ("added" or "dismissed") so the Review inbox stays in step.
+  - **For a prescription:** its medicine lines, when it is one of the two most recent from that doctor, and "See the comparison".
+- **Robustness:** the motion "reveal" preset now leaves out `whileInView` when `IntersectionObserver` is missing (old browsers, jsdom); Motion threw without it.
+
+Checked with screenshots at 1280 and 390 px: grid and timeline, the details step, the wide lines step, and document detail. pdf.js renders thumbnails and pages in Edge.
+
+Contract limits (requests in `docs/contract-requests-ui.md`):
+1. **No way to add a doctor.** A prescription from a doctor not yet in the profile cannot be applied.
+2. **PDF previews do not work offline.** The pdf.js worker is not precached; `vite.config.ts` is frozen.
+3. **Lines for older prescriptions are not shown.** The contract only exposes lines through `latestDiff`, so detail shows lines only for the latest and previous prescription per doctor. No change requested.
+
+Tests (85 in total):
+- **Search** filters the list and calls `documents.search`.
+- **Chips and starred** filter the list.
+- **Timeline** grouping and the changes count.
+- **Duplicate warning:** it appears when `documents.add` returns `duplicateOf`, and Discard removes the copy.
+- **Confirming lines** calls `prescriptions.apply` with the edited values (changed strength, removed line, added line), then lands on `/visit` showing the comparison.
+- **An invalid line** blocks apply and focuses the field.
+- **Detail:** metadata, star, confirm through the review item, page and zoom controls, prescription lines, delete after confirmation.
+- **Pure helpers:** counts, month grouping, doctor matching, details validation.
