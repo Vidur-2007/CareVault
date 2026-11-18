@@ -282,3 +282,50 @@ Could not fix in the UI (needs another owner or a frozen file):
 6. **Checks not automated:** a real screen reader and real browser zoom (the 200% check used an equivalent 640 px viewport). To do by hand on a phone during phase 7.
 
 Tests: 158 in total.
+
+## Phase 7: polish on the real services (2026-11-18)
+
+**There is no `integration` branch yet.** Neither PR has been merged into `main`, and overview §7 has the core side create `integration` after both merges. So this phase:
+- tested on a local, unpushed merge of `feat/ui` and `origin/feat/core`;
+- committed the UI fixes on `feat/ui`, which updates PR #1.
+
+When `integration` exists, these commits arrive with `feat/ui`.
+
+**Walk-through.** The demo path of overview §13 was run on the real services: `VITE_USE_MOCK=false`, `npm run dev`, and the Hono server from `server/index.ts`. Steps:
+1. A fresh browser loads the sample profile.
+2. Review and Medicines.
+3. A pack photo is scanned (real on-device OCR), confirmed and saved.
+4. A prescription PDF is uploaded, its lines confirmed and applied, ending on the comparison.
+5. Visit, then the passport, then share.
+6. A share link that does not exist.
+7. Settings with Gmail.
+
+It was run at 390 px and 1280 px in headless Edge, with every step screenshotted and console errors recorded (none). Long product names and instructions were entered by hand and checked at both widths: they wrap without overflow.
+
+This machine has no Gemini, Supabase or Google keys. Cloud reading, sharing and Gmail were therefore checked on their real "not set up / unreachable" paths only.
+
+Fixed on `feat/ui`:
+- **Typecheck of the merged code.**
+  - `@types/qrcode` begins with `/// <reference types="node" />`, so importing `qrcode` put Node's types into the whole app program. Two core tests that expect Node types to be absent then failed. The UI now imports `qrcode/lib/browser.js` with a small local declaration (`src/ui/types/qrcode-browser.d.ts`). It is the same library, and its browser build renders SVG without a canvas.
+  - The architecture test now reads files with `import.meta.glob(..., { query: '?raw' })` instead of `node:fs`, for the same reason.
+- **Error text.** Real messages such as "(503)" or "VITE_GOOGLE_CLIENT_ID is missing" no longer reach the screen. `toServiceError` turns `network` errors into "CareVault could not reach the server. Check the internet connection and try again.", removes status codes, and turns setting names into "This feature is not set up on this copy of CareVault yet." Every query, action and catch in the UI goes through it. The share dialog no longer repeats itself.
+- **Reading timings.** Reading a text PDF takes about half a second; a clear photo about 4 s once the OCR engine is loaded. The core notes the first photo downloads the engine and model, which can take much longer on a phone. The new `components/ReadingProgress.tsx` (Scan and Add a record):
+  - after 6 s, says the first photo downloads the reader once and the photo stays on the device;
+  - after 25 s, says it is taking longer than usual;
+  - always offers "Enter by hand instead". A late result after that is ignored.
+- **Reports to share.** Pack photos kept from Scan (type other, source scan) are no longer offered as reports to share at the visit.
+- **Phone layout.**
+  - Toasts sit at the top, so they no longer cover the tab bar or the Visit status bar.
+  - In the confirm steps, the original document has its own scroll box (55% of the screen height). A real prescription page no longer pushes the fields a whole screen down.
+
+README and screenshots:
+- `README.md`: what CareVault does and for whom; screenshots of the main screens; the privacy design (what stays on the phone, the three cases where data leaves); the tech stack; how to run it locally; the sample profile; the "not medical advice, synthetic data only" note. The core side adds "Running the server" by request (overview §6).
+- `docs/screenshots/` was captured on the **real services** from a fresh browser: `review-desktop`, `medicines-desktop`, `visit-desktop`, `passport-desktop`, `records-desktop` at 1440 px (the passport at 1000 px), and `review-mobile`, `visit-mobile` at 390 px (2x). The browser clock was set to the sample day (14 Nov 2026, 9:00) so the greeting matches the mockups, with reduced motion so nothing is captured mid-animation.
+
+Not fixed in the UI (requests in `docs/contract-requests-ui.md`):
+1. **#3, urgent: the merged build fails.** vite-plugin-pwa refuses to precache PaddleOCR's 11.3 MB and 10.5 MB files. The fix is one line in the frozen `vite.config.ts`. Until then `npm run check` fails on any merge of the two branches, though not on either branch alone.
+2. **#4: product name from the pack subtitle.** OCR took "Paracetamol Tablets IP 650 mg" as the product name instead of "DOLO 650". The core parses it; the UI shows it as "Check this".
+3. **#1: adding a doctor.** Still open, now requested by both sides.
+4. **Not checked here:** real Gmail sign-in, real Supabase sharing across two devices, real Gemini reading, and a mid-range phone. These need the keys and a phone (checklist in `progress-core.md`).
+
+Tests: 163 on `feat/ui`. On the trial merge, 485 pass; only the build step fails (#3).
