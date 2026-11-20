@@ -398,3 +398,29 @@ Tests: 110 for v2 rules, parsing and reading, plus 9 through the services. Branc
 `npm run check`: 40 files, 617 tests, build passing. `eslint .` clean.
 
 Not tested here: the two OCR engines themselves and rendering a scanned page, which need a real browser (Node has no canvas, and the engines download models). Tests use the engines' real output shapes with fixed values. The phone benchmark in step 10 runs them for real.
+
+### Step 5: v2 sample documents
+
+Built in `public/sample-docs/`, from HTML in `src/core/reading/dev/sample-docs-html/` (invented clinic and lab, and the line "Synthetic sample document made for the CareVault demo" on every page):
+- **`rx-rao-2026-11-13.pdf`, the demo prescription.** Dr. Kavita Rao, 13 Nov 2026, four lines:
+  - Amlodipine 10 mg 1-0-0;
+  - Telmisartan 80 mg 1-0-0;
+  - Rosuvastatin 10 mg 0-0-1;
+  - Aspirin with a smudged strength, 0-1-0.
+
+  On paper the second digit is an ink blot; the text layer reads `7? mg`, so the reader flags it ("A digit could not be read") and has no value for it. It is the only flagged field on the page.
+- **`thyroid-profile-lakshmi-2026-10-02.pdf`:** Lakshmi Iyer's thyroid profile, 2 Oct 2026, referred by Dr. Farah Khan.
+- **`hba1c-report-2026-11-12.pdf`:** remade with no printed date, so the emailed report stays undated, as in the v2 sample case.
+  - The v1 copy, with its date, moved to `hba1c-report-2026-11-12-v1.pdf`, and the v1 core's own file map points there, so v1 behaviour and its tests are unchanged.
+  - The v2 contract's file name (frozen) is the undated one.
+
+Tests: 6 in `src/core/v2/reading/sampleDocs.test.ts`, using the real v2 reader through the services (pdf.js only; the test fails if OCR or the cloud is ever needed):
+- the demo prescription's four lines, its one flag, and the literal `7? mg`;
+- after correcting the strength to 75 mg, its lines equal fixtures `expected.demoPrescription.verifiedLines` exactly;
+- the HbA1c report has no date;
+- Lakshmi's report matches her profile;
+- every seeded document has its file and reads back its sample-case date on the device.
+
+`npm run check`: 41 files, 623 tests, build passing.
+
+For the demo: photograph or upload `public/sample-docs/rx-rao-2026-11-13.pdf` as the new prescription. Uploading the PDF uses its text layer; a photo of the printed page goes through OCR, which may read the blot differently but will still flag it.

@@ -56,7 +56,7 @@ export const SAMPLE_DOCUMENT_FILES: Readonly<Record<ID, string>> = {
   [IDS.documents.lipidProfile]: 'lipid-profile-2026-11-12.pdf',
   [IDS.documents.raoLatest]: 'rx-rao-2026-10-28.pdf',
   [IDS.documents.ecg]: 'ecg-report-2026-09-15.pdf',
-  [IDS.documents.hba1c]: 'hba1c-report-2026-11-12.pdf',
+  [IDS.documents.hba1c]: 'hba1c-report-2026-11-12-v1.pdf', // v1 copy, with a printed date
   [IDS.documents.raoPrevious]: 'rx-rao-2026-08-05.pdf',
   [IDS.documents.menon]: 'rx-menon-2026-07-14.pdf',
 };
