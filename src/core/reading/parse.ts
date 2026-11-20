@@ -68,6 +68,9 @@ function nameBefore(text: string): string {
       break;
     }
     const lower = word.toLowerCase().replace(/\.$/, '');
+    // A stray letter between the name and the strength is OCR debris: 'Ibuprofen |.P. 400 mg'
+    // reads as 'P.' once the bar is dropped.
+    if (name.length === 0 && /^[a-z]$/.test(lower)) continue;
     // 'Paracetamol Tablets IP 650 mg': the form sits between the name and the strength.
     if (name.length === 0 && FORM_WORDS.has(lower)) continue;
     if (NAME_STOP.has(lower) || /^\d/.test(word)) break;
@@ -235,7 +238,7 @@ const titleCase = (text: string) =>
     .replace(/\s+/g, ' ')
     .trim()
     .split(' ')
-    .map((word) => KEEP_CASE[word.toLowerCase()] ?? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => KEEP_CASE[word.toLowerCase().replace(/\./g, '')] ?? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 
 /** One line per medicine on a prescription: a product or ingredient we know, or 'Tab.' and a strength. */
@@ -324,16 +327,25 @@ export function recognisedSomething(lines: readonly ExtractedLine[]): boolean {
   );
 }
 
+/**
+ * Undoes the commonest OCR confusion before parsing: a capital I or a lowercase l read as
+ * a vertical bar ('|.P.' for 'I.P.'). A bar has no meaning on a pack or a prescription.
+ */
+export function cleanOcrText(text: string): string {
+  return text.replace(/\|/g, 'I');
+}
+
 export function parseText(rawText: string): ExtractionCandidate {
-  const documentType = findDocumentType(rawText);
+  const text = cleanOcrText(rawText);
+  const documentType = findDocumentType(text);
   let lines: ExtractedLine[] = [];
-  if (documentType === 'prescription') lines = prescriptionLines(rawText);
-  else if (documentType === 'other') lines = packLine(rawText);
+  if (documentType === 'prescription') lines = prescriptionLines(text);
+  else if (documentType === 'other') lines = packLine(text);
 
   return {
     documentType,
-    documentDate: findDate(rawText),
-    prescriberName: findPrescriber(rawText),
+    documentDate: findDate(text),
+    prescriberName: findPrescriber(text),
     lines,
     engine: 'on_device',
     rawText,

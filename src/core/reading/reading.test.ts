@@ -221,6 +221,25 @@ describe('parseText', () => {
     expect(known).toMatchObject({ productName: 'Paracetamol Tablets IP 500 mg', ingredients: [{ name: 'paracetamol', strength: 500, unit: 'mg' }] });
   });
 
+  it('a real Tesseract.js read of a pack, with "I.P." misread as "|.P." and the brand missed', () => {
+    // Output of Tesseract.js on a clean, photographed Combiflam label (audit, 2026-11-19).
+    const ocr = 'Ibuprofen and Paracetamol Tablets I.P.\nEach uncoated tablet contains:\n\nIbuprofen |.P. 400 mg\n\nParacetamol |.P. 325 mg\n\nDosage: As directed by the physician.\n\nStore below 30 C. Keep out of reach of children.\nMfd. 03/2026 Exp. 02/2029 B. No. TESTO1\n';
+    const candidate = parseText(ocr);
+    expect(candidate.rawText).toBe(ocr);
+    expect(candidate.lines).toEqual([
+      {
+        productName: 'Ibuprofen And Paracetamol Tablets IP',
+        ingredients: [{ name: 'ibuprofen', strength: 400, unit: 'mg' }, { name: 'paracetamol', strength: 325, unit: 'mg' }],
+        form: 'tablet',
+        dosesPerDay: null,
+        instruction: '',
+        warnings: [WARNING_NO_FREQUENCY],
+      },
+    ]);
+    expect(needsCloud(candidate, 0.9)).toBe(false);
+    expect(findIngredients('Metformin H. 500 mg')).toEqual([{ name: 'metformin', strength: 500, unit: 'mg' }]);
+  });
+
   it('text with nothing recognisable gives no lines', () => {
     expect(parseText('Keep out of reach of children\nStore below 25 C').lines).toEqual([]);
     expect(parseText('').lines).toEqual([]);
