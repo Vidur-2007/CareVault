@@ -1,7 +1,7 @@
 // Gmail import (UI spec 7.11): connect, list candidate report PDFs, import into records.
 import { Mail, Paperclip } from 'lucide-react';
 import { useState } from 'react';
-import type { GmailCandidate } from '../../../contract/types';
+import type { GmailCandidate } from '../../../contract/legacy/types';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { CloudNotice } from '../../components/CloudNotice';

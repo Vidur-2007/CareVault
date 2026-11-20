@@ -1,6 +1,6 @@
 // Gmail REST calls, made from the browser with the caregiver's short-lived token.
 // Read-only: search for messages with PDF attachments, read their headers, download one.
-import { ServiceError, type GmailCandidate, type ISODate } from '../../contract/types';
+import { ServiceError, type GmailCandidate, type ISODate } from '../../contract/legacy/types';
 import { fromBase64Url } from '../share/crypto';
 
 const API = 'https://gmail.googleapis.com/gmail/v1/users/me';

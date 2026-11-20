@@ -11,9 +11,9 @@ import {
   sampleProfile,
   sampleReviewItems,
   sampleVisit,
-} from '../contract/fixtures/sampleCase';
-import type { CareVaultServices } from '../contract/services';
-import { ServiceError, type ExtractedLine, type MedicineStatus } from '../contract/types';
+} from '../contract/legacy/fixtures/sampleCase';
+import type { CareVaultServices } from '../contract/legacy/services';
+import { ServiceError, type ExtractedLine, type MedicineStatus } from '../contract/legacy/types';
 import { createRealServices, SAMPLE_DOCUMENT_FILES } from './createRealServices';
 import { CareVaultDb } from './db/schema';
 import { createTokenSource } from './gmail/token';

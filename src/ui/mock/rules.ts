@@ -1,6 +1,6 @@
 // Simple, pure versions of the behaviour rules (overview spec section 9) for the mock.
 // The real, fully tested rules engine lives in src/core and is never imported here.
-import type * as T from '../../contract/types';
+import type * as T from '../../contract/legacy/types';
 
 export const ACTIVE_STATUSES: T.MedicineStatus[] = ['found_at_home', 'confirmed_current', 'needs_confirmation'];
 

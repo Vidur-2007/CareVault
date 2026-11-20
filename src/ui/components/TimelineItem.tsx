@@ -1,7 +1,7 @@
 import { Activity, ClipboardList, FileText, FlaskConical, Hospital } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import type { DocumentType } from '../../contract/types';
+import type { DocumentType } from '../../contract/legacy/types';
 import { cx } from '../lib/cx';
 
 const TYPE_ICON: Record<DocumentType, ReactNode> = {

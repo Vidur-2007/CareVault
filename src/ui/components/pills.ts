@@ -1,5 +1,5 @@
 // Maps statuses to pill tone and words (UI spec section 3). Status never relies on colour alone.
-import type { DiffKind, DocumentRecord, Medicine, MedicineStatus, PrescriptionDiffRow, ReviewKind } from '../../contract/types';
+import type { DiffKind, DocumentRecord, Medicine, MedicineStatus, PrescriptionDiffRow, ReviewKind } from '../../contract/legacy/types';
 
 export type PillTone = 'teal' | 'blue' | 'amber' | 'red' | 'grey' | 'check';
 

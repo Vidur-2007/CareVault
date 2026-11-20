@@ -3,7 +3,7 @@
 import { CheckCheck, Plus, Trash2 } from 'lucide-react';
 import { useId, useImperativeHandle, useRef, useState } from 'react';
 import type { Ref } from 'react';
-import type { ExtractedLine } from '../../../contract/types';
+import type { ExtractedLine } from '../../../contract/legacy/types';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { LineFields } from '../../components/lineForm/LineFields';

@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import type { DocumentRecord, PrescriptionDiff } from '../../../contract/types';
+import type { DocumentRecord, PrescriptionDiff } from '../../../contract/legacy/types';
 import { useMotionPresets } from '../../app/motion';
 import { DocumentCard } from '../../components/DocumentCard';
 import { SectionHeader } from '../../components/SectionHeader';

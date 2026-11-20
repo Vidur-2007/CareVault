@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { CareVaultServices } from '../../../contract/services';
+import type { CareVaultServices } from '../../../contract/legacy/services';
 import { services as defaultServices } from '../../../services';
 import { ServicesContext } from '../contexts';
 

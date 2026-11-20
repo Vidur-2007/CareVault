@@ -10,7 +10,7 @@ import type {
   Profile,
   ReviewItem,
   Visit,
-} from '../../contract/types';
+} from '../../contract/legacy/types';
 import type { LineInput } from './prescriptions';
 import { withReviewRefresh } from './review';
 import { applyPlan, type RuleContext, type RulesState, type WritePlan } from './types';

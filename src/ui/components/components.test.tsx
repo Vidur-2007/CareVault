@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
-import { IDS, sampleDocuments, sampleReviewItems } from '../../contract/fixtures/sampleCase';
+import { IDS, sampleDocuments, sampleReviewItems } from '../../contract/legacy/fixtures/sampleCase';
 import { pronounsFor } from '../lib/pronouns';
 import { Button } from './Button';
 import { Pill } from './Pill';

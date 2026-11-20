@@ -13,8 +13,8 @@ import {
   sampleProfile,
   sampleReviewItems,
   sampleVisit,
-} from '../../contract/fixtures/sampleCase';
-import type { MedicineStatus } from '../../contract/types';
+} from '../../contract/legacy/fixtures/sampleCase';
+import type { MedicineStatus } from '../../contract/legacy/types';
 import { createChangeNotifier, type ChangeNotifier } from './events';
 import { createRepos, type Repos } from './repos';
 import { CareVaultDb, TABLE_NAMES, type StoredShare } from './schema';

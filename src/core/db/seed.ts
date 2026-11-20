@@ -1,6 +1,6 @@
 // Loads the demo case from the frozen fixtures into the local database.
-import { IDS, sampleCase } from '../../contract/fixtures/sampleCase';
-import type { Profile } from '../../contract/types';
+import { IDS, sampleCase } from '../../contract/legacy/fixtures/sampleCase';
+import type { Profile } from '../../contract/legacy/types';
 import type { Repos } from './repos';
 
 /**

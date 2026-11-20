@@ -223,3 +223,20 @@ All build phases (1 to 6) are done and pushed on `feat/core`. Open before integr
 3. **Drug reference spot checks** (`src/core/drugref/SOURCES.md`): four entries to confirm, about 25 products left out.
 4. **Accounts**: Supabase, Gemini key, Google OAuth client (checklists in Phases 5 and 6).
 5. Nothing has been run in a real browser or against real Supabase, Gemini or Gmail. That is Phase 7.
+
+## v2
+
+### Phase 0: contract v2 and fixtures
+
+Built on `main` by laptop A, so that both laptops start from the same commit:
+- **The v2 contract:** `src/contract/types.ts`, `services.ts` and `today.ts`, copied from `docs/specs/00-overview.spec.md` section 8 word for word (60 service methods plus `subscribe`).
+- **The v2 sample case:** `src/contract/fixtures/sampleCase.ts`, with two profiles (Ramesh and Lakshmi), the routine stated explicitly with sources and confirmation dates, routine history, allergies and conditions, the next visit, the demo prescription's expected review rows, and `expected`. `sampleCase.test.ts` checks it is internally consistent.
+- **The v1 contract** moved unchanged to `src/contract/legacy/`; every v1 import points there. The v1 app and its tests are unchanged.
+- **`src/services/index.ts`:** `services` (v1, temporary) and `createServicesV2()`.
+
+Temporary until replaced (marked `TEMPORARY` in the code):
+- `src/core/v2/createRealServicesV2.ts`: every v2 method rejects with `ServiceError('unknown', 'not built yet')`. Core steps 1 to 9 replace it.
+- `src/ui/mock/v2/createMockServicesV2.ts`: a compatibility mock serving the sample case. Reading, proposals, `decide`, `undo`, `ask`, Gmail import and backup are not modelled; the passport's medicine order and recent changes are simplified. UI step 1 replaces it.
+- The v1 side (`src/contract/legacy`, the v1 mock and the v1 core) is removed at the merge checkpoint.
+
+`npm run check`: 35 test files, 508 tests, build passing. `eslint .` clean.

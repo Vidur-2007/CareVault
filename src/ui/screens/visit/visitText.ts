@@ -1,5 +1,5 @@
 // Pure helpers for the Visit screen (UI spec 7.8). Unit-tested.
-import type { DiffKind, PrescriptionDiffRow, ReviewItem } from '../../../contract/types';
+import type { DiffKind, PrescriptionDiffRow, ReviewItem } from '../../../contract/legacy/types';
 import { strengthText } from '../../components/lineText';
 import { formatDayMonth } from '../../lib/format';
 import type { Pronouns } from '../../lib/pronouns';

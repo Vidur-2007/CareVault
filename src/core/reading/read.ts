@@ -1,5 +1,5 @@
 // reading.read(): PDF text or OCR on the device first, the cloud only with consent.
-import { ServiceError, type ExtractionCandidate } from '../../contract/types';
+import { ServiceError, type ExtractionCandidate } from '../../contract/legacy/types';
 import { crossCheck } from '../drugref/lookup';
 import { extractInCloud } from './cloud';
 import type { OcrEngine } from './ocr/engine';

@@ -1,6 +1,6 @@
 // Google Identity Services, token model. The access token is short-lived and lives in
 // this module's memory only: it is never written to IndexedDB and never sent to our server.
-import { ServiceError } from '../../contract/types';
+import { ServiceError } from '../../contract/legacy/types';
 
 export const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
 const GIS_SCRIPT = 'https://accounts.google.com/gsi/client';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ServiceError, type PrescriptionLine } from '../../contract/types';
+import { ServiceError, type PrescriptionLine } from '../../contract/legacy/types';
 import { describeChange, diffPrescriptions, linesIdentical, reviewNote } from './diff';
 import { buildDiff, planPrescriptionApply, prescriptionsFrom } from './prescriptions';
 import { commit, DR_A, DR_B, ing, item, line, makeCtx, makeState, med, PROFILE, rx, storedLine } from './testkit';

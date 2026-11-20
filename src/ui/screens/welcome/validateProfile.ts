@@ -1,4 +1,4 @@
-import type { Profile } from '../../../contract/types';
+import type { Profile } from '../../../contract/legacy/types';
 
 export interface ProfileFormValues {
   name: string;

@@ -1,5 +1,5 @@
 // The next visit and its list of questions for the doctor.
-import { ServiceError, type ISODate, type Question, type Visit } from '../../contract/types';
+import { ServiceError, type ISODate, type Question, type Visit } from '../../contract/legacy/types';
 import { emptyPlan, type RuleContext, type RulesState, type WritePlan } from './types';
 
 /**

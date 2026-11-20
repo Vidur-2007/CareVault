@@ -1,6 +1,6 @@
 // Small wording helpers for the sentences the rules produce. Dates are read from the
 // text of the ISO string, so the time zone of the device never shifts the day.
-import type { ISODate, ISODateTime } from '../../contract/types';
+import type { ISODate, ISODateTime } from '../../contract/legacy/types';
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTHS_LONG = [

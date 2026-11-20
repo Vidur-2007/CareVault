@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { CircleCheck } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import type { DocumentRecord, Medicine, ReviewItem, ReviewResolution } from '../../contract/types';
+import type { DocumentRecord, Medicine, ReviewItem, ReviewResolution } from '../../contract/legacy/types';
 import { useMotionPresets } from '../app/motion';
 import { Button } from '../components/Button';
 import { ConfirmDialog } from '../components/ConfirmDialog';

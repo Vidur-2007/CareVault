@@ -1,7 +1,7 @@
 import { CheckCheck } from 'lucide-react';
 import { useId } from 'react';
 import type { FormEvent, ReactNode } from 'react';
-import type { ExtractedLine } from '../../../contract/types';
+import type { ExtractedLine } from '../../../contract/legacy/types';
 import { Button } from '../Button';
 import { SourceViewer } from '../SourceViewer';
 import { focusFirstLineError } from './lineDraft';

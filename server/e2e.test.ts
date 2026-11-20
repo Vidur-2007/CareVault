@@ -3,9 +3,9 @@
 // "browser" that only has the link. The share store is in memory.
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { IDS } from '../src/contract/fixtures/sampleCase.ts';
-import type { CareVaultServices } from '../src/contract/services.ts';
-import type { Passport, ServiceError } from '../src/contract/types.ts';
+import { IDS } from '../src/contract/legacy/fixtures/sampleCase.ts';
+import type { CareVaultServices } from '../src/contract/legacy/services.ts';
+import type { Passport, ServiceError } from '../src/contract/legacy/types.ts';
 import { exportBackup, importBackup, PBKDF2_ITERATIONS } from '../src/core/backup/backup.ts';
 import { createRealServices } from '../src/core/createRealServices.ts';
 import { CareVaultDb } from '../src/core/db/schema.ts';

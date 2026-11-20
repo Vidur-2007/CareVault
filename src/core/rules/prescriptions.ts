@@ -9,7 +9,7 @@ import {
   type PrescriptionDiff,
   type PrescriptionLine,
   type ReviewItem,
-} from '../../contract/types';
+} from '../../contract/legacy/types';
 import { describeChange, diffPrescriptions, linesIdentical, strengthDiffers } from './diff';
 import { normalizeIngredients, sameMedicine } from './normalize';
 import { makeEvent, type LineFields } from './status';

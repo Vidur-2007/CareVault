@@ -1,4 +1,4 @@
-import type { DocumentRecord, Visit } from '../../../contract/types';
+import type { DocumentRecord, Visit } from '../../../contract/legacy/types';
 import { Card } from '../../components/Card';
 import { Checkbox } from '../../components/Checkbox';
 import { useServiceAction } from '../../hooks/useServiceAction';

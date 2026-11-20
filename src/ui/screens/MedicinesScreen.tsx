@@ -2,7 +2,7 @@
 import { Camera, Pill as PillIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
-import type { IngredientTotal, Medicine } from '../../contract/types';
+import type { IngredientTotal, Medicine } from '../../contract/legacy/types';
 import { Button } from '../components/Button';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';

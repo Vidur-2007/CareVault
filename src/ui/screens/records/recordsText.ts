@@ -1,5 +1,5 @@
 // Pure helpers for the Records screens. Unit-tested.
-import type { DocumentRecord, DocumentType, ExtractionCandidate, ISODate, Prescriber } from '../../../contract/types';
+import type { DocumentRecord, DocumentType, ExtractionCandidate, ISODate, Prescriber } from '../../../contract/legacy/types';
 import { formatDate } from '../../lib/format';
 import { DOCUMENT_TYPE_LABEL } from '../../lib/labels';
 

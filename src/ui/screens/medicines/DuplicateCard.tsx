@@ -1,4 +1,4 @@
-import type { IngredientTotal, Medicine } from '../../../contract/types';
+import type { IngredientTotal, Medicine } from '../../../contract/legacy/types';
 import { Button } from '../../components/Button';
 import { Card, Panel } from '../../components/Card';
 import { capitalize } from '../../components/lineText';

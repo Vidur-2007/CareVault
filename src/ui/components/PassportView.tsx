@@ -1,7 +1,7 @@
 // The Doctor Visit Passport page (UI spec 7.9, CareVault-Passport.png). Presentational: used by
 // /visit/passport and by the public /share/:id view. Sized to print on one A4 page.
 import type { ReactNode } from 'react';
-import type { Passport } from '../../contract/types';
+import type { Passport } from '../../contract/legacy/types';
 import { cx } from '../lib/cx';
 import { formatDate, formatDayMonth, formatLongDate, formatWeekday } from '../lib/format';
 import { Logo } from './Logo';

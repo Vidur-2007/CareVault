@@ -8,7 +8,7 @@ import type {
   Ingredient,
   ISODate,
   MedicineForm,
-} from '../../contract/types';
+} from '../../contract/legacy/types';
 import { findProductsInText, isKnownIngredient, lookupProduct } from '../drugref/lookup';
 import { normalizeIngredientName } from '../rules/normalize';
 

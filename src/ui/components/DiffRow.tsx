@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import type { PrescriptionDiffRow, PrescriptionLine, ReviewResolution } from '../../contract/types';
+import type { PrescriptionDiffRow, PrescriptionLine, ReviewResolution } from '../../contract/legacy/types';
 import { useMotionPresets } from '../app/motion';
 import { cx } from '../lib/cx';
 import { Button } from './Button';

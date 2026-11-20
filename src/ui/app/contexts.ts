@@ -1,7 +1,7 @@
 // React contexts shared by the UI. Providers live in src/ui/app/providers, hooks in src/ui/hooks.
 import { createContext } from 'react';
-import type { CareVaultServices } from '../../contract/services';
-import type { Prescriber, Profile } from '../../contract/types';
+import type { CareVaultServices } from '../../contract/legacy/services';
+import type { Prescriber, Profile } from '../../contract/legacy/types';
 
 export const ServicesContext = createContext<CareVaultServices | null>(null);
 

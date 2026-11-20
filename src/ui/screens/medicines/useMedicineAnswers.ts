@@ -1,7 +1,7 @@
 // "Still taking / Stopped / Ask the doctor" for one medicine, shared by Medicines and the detail page.
 // When an open confirm_medicine review item exists, the answer resolves it (with Undo, like Review);
 // otherwise the medicine status is set directly.
-import type { Medicine } from '../../../contract/types';
+import type { Medicine } from '../../../contract/legacy/types';
 import { useDeferredResolutions } from '../../hooks/useDeferredResolutions';
 import { useToast } from '../../hooks/useContexts';
 import { useServiceAction } from '../../hooks/useServiceAction';

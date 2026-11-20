@@ -10,7 +10,7 @@ import {
   type Medicine,
   type ReviewItem,
   type ReviewResolution,
-} from '../../contract/types';
+} from '../../contract/legacy/types';
 import { buildDiff } from './prescriptions';
 import { isActive, makeEvent } from './status';
 import { countWord, dayAndMonth, joinNames, pronounsFor, weekday } from './text';

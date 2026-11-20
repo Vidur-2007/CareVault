@@ -1,4 +1,4 @@
-import { ServiceError } from '../../contract/types';
+import { ServiceError } from '../../contract/legacy/types';
 
 const NETWORK_MESSAGE = 'CareVault could not reach the server. Check the internet connection and try again.';
 const NOT_SET_UP_MESSAGE = 'This feature is not set up on this copy of CareVault yet.';

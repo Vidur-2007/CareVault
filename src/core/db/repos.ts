@@ -19,7 +19,7 @@ import type {
   Profile,
   ReviewItem,
   Visit,
-} from '../../contract/types';
+} from '../../contract/legacy/types';
 import type { ChangeNotifier } from './events';
 import type { CareVaultDb, SettingRow, StoredFile, StoredShare } from './schema';
 

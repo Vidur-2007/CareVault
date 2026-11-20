@@ -11,7 +11,7 @@ import type {
   ReviewItem,
   ShareLink,
   Visit,
-} from '../../contract/types';
+} from '../../contract/legacy/types';
 
 export const DB_NAME = 'carevault';
 

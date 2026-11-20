@@ -1,4 +1,4 @@
-import type { DocumentRecord, ReviewItem, ReviewResolution } from '../../contract/types';
+import type { DocumentRecord, ReviewItem, ReviewResolution } from '../../contract/legacy/types';
 import type { Pronouns } from '../lib/pronouns';
 import { pronounsFor } from '../lib/pronouns';
 import { Button } from './Button';

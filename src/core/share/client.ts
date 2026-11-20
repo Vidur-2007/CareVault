@@ -1,6 +1,6 @@
 // Calls to /api/share, and the checks on what comes back.
 import { z } from 'zod';
-import { ServiceError, type ISODateTime, type Passport } from '../../contract/types';
+import { ServiceError, type ISODateTime, type Passport } from '../../contract/legacy/types';
 import { decryptJson, encryptJson, type Sealed } from './crypto';
 
 type Fetcher = typeof fetch;

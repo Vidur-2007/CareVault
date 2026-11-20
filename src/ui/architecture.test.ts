@@ -55,7 +55,7 @@ describe('architecture', () => {
       "const m = await import('../../core/db/schema');",
       "import '../../core/side-effect';",
       "import { services } from '../../services';",
-      "import type { Medicine } from '../../contract/types';",
+      "import type { Medicine } from '../../contract/legacy/types';",
       "import { y } from './core-ish';",
     ].join('\n');
     // From src/ui/screens/, '../../core' is src/core.

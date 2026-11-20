@@ -2,7 +2,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '../Button';
 import { Field } from '../Field';
 import { DOSE_UNITS, MEDICINE_FORMS, ingredientPath, lineFieldId } from './lineDraft';
-import type { MedicineForm } from '../../../contract/types';
+import type { MedicineForm } from '../../../contract/legacy/types';
 import type { LineDraftState } from './useLineDraft';
 
 export interface LineFieldsProps {

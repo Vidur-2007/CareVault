@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import type { Profile } from '../../../contract/types';
+import type { Profile } from '../../../contract/legacy/types';
 import { Button } from '../../components/Button';
 import { Field } from '../../components/Field';
 import { useServiceAction } from '../../hooks/useServiceAction';

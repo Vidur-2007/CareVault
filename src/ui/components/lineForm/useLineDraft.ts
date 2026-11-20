@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { DoseUnit, ExtractedLine, MedicineForm } from '../../../contract/types';
+import type { DoseUnit, ExtractedLine, MedicineForm } from '../../../contract/legacy/types';
 import { allFieldPaths, draftFromLine, ingredientPath, newIngredientKey, validateDraft, warningsByField } from './lineDraft';
 import type { FieldPath, LineDraft, LineErrors } from './lineDraft';
 

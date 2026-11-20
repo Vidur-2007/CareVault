@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { expected, IDS } from '../../contract/fixtures/sampleCase';
-import type { MedicineStatus } from '../../contract/types';
-import { ServiceError } from '../../contract/types';
+import { expected, IDS } from '../../contract/legacy/fixtures/sampleCase';
+import type { MedicineStatus } from '../../contract/legacy/types';
+import { ServiceError } from '../../contract/legacy/types';
 import { createMockServices } from './createMockServices';
 
 const P = IDS.profile;

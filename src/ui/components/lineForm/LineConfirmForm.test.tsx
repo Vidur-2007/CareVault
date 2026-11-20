@@ -2,7 +2,7 @@ import '../../test/configureTesting';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { ExtractedLine } from '../../../contract/types';
+import type { ExtractedLine } from '../../../contract/legacy/types';
 import { LineConfirmForm } from './LineConfirmForm';
 import { validateDraft, draftFromLine, warningsByField } from './lineDraft';
 

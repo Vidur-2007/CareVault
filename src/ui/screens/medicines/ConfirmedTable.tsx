@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import type { Medicine, MedicationEvent, Prescriber } from '../../../contract/types';
+import type { Medicine, MedicationEvent, Prescriber } from '../../../contract/legacy/types';
 import { capitalize } from '../../components/lineText';
 import { Pill } from '../../components/Pill';
 import { lastChange } from './medicineText';

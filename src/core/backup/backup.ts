@@ -3,7 +3,7 @@
 // Layout: one line of JSON (the header), a newline, then the AES-GCM ciphertext.
 // The key is derived from the passphrase with PBKDF2-HMAC-SHA256.
 import { z } from 'zod';
-import { ServiceError } from '../../contract/types';
+import { ServiceError } from '../../contract/legacy/types';
 import type { Repos } from '../db/repos';
 import { TABLE_NAMES, type TableName } from '../db/schema';
 import { fromBase64Url, toBase64Url } from '../share/crypto';

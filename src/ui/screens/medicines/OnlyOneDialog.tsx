@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { IngredientTotal } from '../../../contract/types';
+import type { IngredientTotal } from '../../../contract/legacy/types';
 import { Button } from '../../components/Button';
 import { Dialog } from '../../components/Dialog';
 import type { Pronouns } from '../../lib/pronouns';

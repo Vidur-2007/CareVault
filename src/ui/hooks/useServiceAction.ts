@@ -5,8 +5,8 @@
 //     { success: (doc) => (doc.starred ? 'Starred' : 'Unstarred') });
 //   await star.run(doc.id, true);
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CareVaultServices } from '../../contract/services';
-import type { ServiceError } from '../../contract/types';
+import type { CareVaultServices } from '../../contract/legacy/services';
+import type { ServiceError } from '../../contract/legacy/types';
 import { useServices, useToast } from './useContexts';
 import { toServiceError } from './toServiceError';
 

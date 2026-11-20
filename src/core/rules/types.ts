@@ -12,7 +12,7 @@ import type {
   Profile,
   ReviewItem,
   Visit,
-} from '../../contract/types';
+} from '../../contract/legacy/types';
 
 /** Everything the rules need to know about one profile. */
 export interface RulesState {

@@ -1,6 +1,6 @@
 import { ChevronRight, Stethoscope } from 'lucide-react';
 import { Link } from 'react-router';
-import type { Profile } from '../../../contract/types';
+import type { Profile } from '../../../contract/legacy/types';
 import { Button } from '../../components/Button';
 import { Skeleton } from '../../components/Skeleton';
 import { formatWeekdayDate } from '../../lib/format';

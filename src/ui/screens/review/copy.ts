@@ -1,6 +1,6 @@
 // Wording for the Review screen (UI spec 7.2, CareVault-Main.png / CareVault-Mobile.png).
 // Pure functions so every variant is unit-tested.
-import type { ISODate, Prescriber, Profile, Visit } from '../../../contract/types';
+import type { ISODate, Prescriber, Profile, Visit } from '../../../contract/legacy/types';
 import { daysBetween, formatDayMonth, formatShortWeekdayDate, formatTime, formatWeekday } from '../../lib/format';
 
 const WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];

@@ -1,5 +1,5 @@
 // Comparison of a prescription with the previous one from the same prescriber.
-import type { DiffKind, PrescriptionLine } from '../../contract/types';
+import type { DiffKind, PrescriptionLine } from '../../contract/legacy/types';
 import { describeStrength, ingredientKey, strengthSignature } from './normalize';
 import type { Pronouns } from './text';
 

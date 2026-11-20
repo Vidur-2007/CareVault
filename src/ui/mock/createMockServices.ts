@@ -5,10 +5,10 @@
 //   makes those calls reject with ServiceError('network'). The extra value 'cloud_consent' makes
 //   reading.read reject with 'cloud_consent_required' when allowCloud is false.
 // - "Today" is fixed at SAMPLE_TODAY so the sample visit stays upcoming.
-import type { CareVaultServices } from '../../contract/services';
-import type * as T from '../../contract/types';
-import { ServiceError } from '../../contract/types';
-import { IDS, SAMPLE_TODAY } from '../../contract/fixtures/sampleCase';
+import type { CareVaultServices } from '../../contract/legacy/services';
+import type * as T from '../../contract/legacy/types';
+import { ServiceError } from '../../contract/legacy/types';
+import { IDS, SAMPLE_TODAY } from '../../contract/legacy/fixtures/sampleCase';
 import { emptyState, seedSample } from './state';
 import type { MockState } from './state';
 import {

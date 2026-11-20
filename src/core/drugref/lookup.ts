@@ -1,6 +1,6 @@
 // Lookup in the bundled drug reference. The reference is used to recognise product
 // names and to cross-check what was read. It never overrides what the pack says.
-import type { Ingredient, MedicineForm } from '../../contract/types';
+import type { Ingredient, MedicineForm } from '../../contract/legacy/types';
 import { normalizeIngredientName, strengthSignature } from '../rules/normalize';
 import table from './table.json';
 

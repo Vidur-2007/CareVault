@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ServiceError, type Medicine, type ReviewItem } from '../../contract/types';
+import { ServiceError, type Medicine, type ReviewItem } from '../../contract/legacy/types';
 import { planPrescriptionApply } from './prescriptions';
 import {
   expectedReviewItems,

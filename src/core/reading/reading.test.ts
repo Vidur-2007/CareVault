@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
-import { IDS, samplePrescriptionLines } from '../../contract/fixtures/sampleCase';
-import { ServiceError, type ExtractionCandidate } from '../../contract/types';
+import { IDS, samplePrescriptionLines } from '../../contract/legacy/fixtures/sampleCase';
+import { ServiceError, type ExtractionCandidate } from '../../contract/legacy/types';
 import { SAMPLE_DOCUMENT_FILES } from '../createRealServices';
 import { crossCheck, DRUG_TABLE, findProductsInText, isKnownIngredient, lookupProduct, normalizeProductName } from '../drugref/lookup';
 import { candidateFromCloud, extractInCloud, MAX_IMAGE_BYTES } from './cloud';

@@ -1,6 +1,6 @@
 // In-memory tables for the mock services, seeded from the frozen sample case.
-import { IDS, sampleCase } from '../../contract/fixtures/sampleCase';
-import type * as T from '../../contract/types';
+import { IDS, sampleCase } from '../../contract/legacy/fixtures/sampleCase';
+import type * as T from '../../contract/legacy/types';
 
 export interface MockShare {
   link: T.ShareLink;

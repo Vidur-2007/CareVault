@@ -1,5 +1,5 @@
-import type { CareVaultServices } from '../../../contract/services';
-import type { ExtractedLine, IngredientTotal, Medicine } from '../../../contract/types';
+import type { CareVaultServices } from '../../../contract/legacy/services';
+import type { ExtractedLine, IngredientTotal, Medicine } from '../../../contract/legacy/types';
 
 export interface SavedScan {
   medicine: Medicine;

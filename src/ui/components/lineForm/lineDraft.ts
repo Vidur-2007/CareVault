@@ -1,7 +1,7 @@
 // Editable draft of one medicine line (a scanned pack or one prescription line).
 // Pure functions: parse an ExtractedLine into strings for the inputs, validate back into a line,
 // and attach extraction warnings to the field they are about.
-import type { DoseUnit, ExtractedLine, MedicineForm } from '../../../contract/types';
+import type { DoseUnit, ExtractedLine, MedicineForm } from '../../../contract/legacy/types';
 
 export interface IngredientDraft {
   /** Stable key so field markers survive adding and removing rows. */

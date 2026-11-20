@@ -1,7 +1,7 @@
 import { Check, ChevronDown, Plus } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import type { Profile } from '../../contract/types';
+import type { Profile } from '../../contract/legacy/types';
 import { cx } from '../lib/cx';
 import { ageFrom, initials } from '../lib/format';
 

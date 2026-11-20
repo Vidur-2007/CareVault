@@ -1,9 +1,9 @@
 // @vitest-environment node
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { IDS } from '../../contract/fixtures/sampleCase';
-import type { CareVaultServices } from '../../contract/services';
-import type { ServiceError } from '../../contract/types';
+import { IDS } from '../../contract/legacy/fixtures/sampleCase';
+import type { CareVaultServices } from '../../contract/legacy/services';
+import type { ServiceError } from '../../contract/legacy/types';
 import { createRealServices } from '../createRealServices';
 import { CareVaultDb } from '../db/schema';
 import { toBase64Url } from '../share/crypto';

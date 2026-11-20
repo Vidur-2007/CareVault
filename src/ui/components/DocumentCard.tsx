@@ -1,7 +1,7 @@
 import { Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import type { DocumentRecord } from '../../contract/types';
+import type { DocumentRecord } from '../../contract/legacy/types';
 import { cx } from '../lib/cx';
 import { formatDate } from '../lib/format';
 import { DOCUMENT_TYPE_LABEL, sourceLabel, stateLabel } from '../lib/labels';

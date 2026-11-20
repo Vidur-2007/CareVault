@@ -1,5 +1,5 @@
 // Decides whether on-device reading was good enough to use.
-import type { ExtractionCandidate } from '../../contract/types';
+import type { ExtractionCandidate } from '../../contract/legacy/types';
 import { recognisedSomething } from './parse';
 
 export const MIN_CONFIDENCE = 0.6;

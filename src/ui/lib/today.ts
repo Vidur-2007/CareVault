@@ -1,5 +1,5 @@
-import { SAMPLE_TODAY } from '../../contract/fixtures/sampleCase';
-import type { ISODate } from '../../contract/types';
+import { SAMPLE_TODAY } from '../../contract/legacy/fixtures/sampleCase';
+import type { ISODate } from '../../contract/legacy/types';
 
 /**
  * "Today" for display (date line, ages). With the mock services it is fixed at SAMPLE_TODAY,

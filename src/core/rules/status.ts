@@ -6,7 +6,7 @@ import type {
   MedicationEvent,
   MedicationEventType,
   MedicineStatus,
-} from '../../contract/types';
+} from '../../contract/legacy/types';
 import { normalizeIngredients } from './normalize';
 import { emptyPlan, type RuleContext, type WritePlan } from './types';
 

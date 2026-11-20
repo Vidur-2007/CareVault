@@ -7,7 +7,7 @@ import type {
   Medicine,
   Passport,
   PrescriptionDiff,
-} from '../../contract/types';
+} from '../../contract/legacy/types';
 import { describeChange, strengthDiffers } from './diff';
 import { describeStrength, sameMedicine } from './normalize';
 import { buildDiff } from './prescriptions';

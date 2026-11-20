@@ -2,8 +2,8 @@ import '../test/configureTesting';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { expected } from '../../contract/fixtures/sampleCase';
-import type { PrescriptionDiffRow } from '../../contract/types';
+import { expected } from '../../contract/legacy/fixtures/sampleCase';
+import type { PrescriptionDiffRow } from '../../contract/legacy/types';
 import { DiffRow } from './DiffRow';
 
 const row = (kind: PrescriptionDiffRow['kind']) => expected.diffRows.find((r) => r.kind === kind)! as PrescriptionDiffRow;

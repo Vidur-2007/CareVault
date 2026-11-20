@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Smartphone } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import type { Profile } from '../../contract/types';
+import type { Profile } from '../../contract/legacy/types';
 import { useMotionPresets } from '../app/motion';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';

@@ -8,7 +8,7 @@ import {
   type ExtractionCandidate,
   type Ingredient,
   type MedicineForm,
-} from '../../contract/types';
+} from '../../contract/legacy/types';
 import { normalizeIngredientName } from '../rules/normalize';
 
 export const MAX_IMAGE_BYTES = 6 * 1024 * 1024;

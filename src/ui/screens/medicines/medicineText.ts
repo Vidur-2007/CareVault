@@ -1,5 +1,5 @@
 // Wording for the Medicines screens. Pure functions, unit-tested.
-import type { DocumentRecord, ISODate, Medicine, MedicationEvent, MedicineForm, Prescriber } from '../../../contract/types';
+import type { DocumentRecord, ISODate, Medicine, MedicationEvent, MedicineForm, Prescriber } from '../../../contract/legacy/types';
 import { capitalize, strengthText } from '../../components/lineText';
 import { formatDate, formatShortDate } from '../../lib/format';
 import { shortDoctorName } from '../review/copy';

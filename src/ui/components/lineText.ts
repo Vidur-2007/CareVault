@@ -1,4 +1,4 @@
-import type { Ingredient } from '../../contract/types';
+import type { Ingredient } from '../../contract/legacy/types';
 
 export function strengthText(ingredients: Ingredient[]): string {
   return ingredients.map((i) => `${i.strength} ${i.unit}`).join(' + ');

@@ -2,7 +2,7 @@
 import { ArrowLeft, CircleCheck, Lightbulb, PencilLine } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router';
-import type { ExtractedLine, ExtractionCandidate } from '../../contract/types';
+import type { ExtractedLine, ExtractionCandidate } from '../../contract/legacy/types';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { CloudConsentPanel } from '../components/CloudConsentPanel';

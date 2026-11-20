@@ -1,6 +1,6 @@
 // The bridge between the database and the rules: load one profile's state, and store
 // the plan the rules return.
-import { ServiceError, type ID } from '../contract/types';
+import { ServiceError, type ID } from '../contract/legacy/types';
 import type { Repos } from './db/repos';
 import { applyPlan, type RulesState, type WritePlan } from './rules/types';
 

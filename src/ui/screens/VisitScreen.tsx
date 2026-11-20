@@ -1,7 +1,7 @@
 // Visit, appointment mode (UI spec 7.8). Matches docs/design/CareVault-Changes.png.
 import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router';
-import type { DocumentRecord, ReviewResolution } from '../../contract/types';
+import type { DocumentRecord, ReviewResolution } from '../../contract/legacy/types';
 import { DiffRow } from '../components/DiffRow';
 import { ErrorPanel } from '../components/ErrorPanel';
 import { SectionHeader } from '../components/SectionHeader';

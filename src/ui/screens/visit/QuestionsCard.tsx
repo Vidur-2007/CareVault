@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
 import { useId, useState } from 'react';
 import type { FormEvent } from 'react';
-import type { Visit } from '../../../contract/types';
+import type { Visit } from '../../../contract/legacy/types';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { useServiceAction } from '../../hooks/useServiceAction';

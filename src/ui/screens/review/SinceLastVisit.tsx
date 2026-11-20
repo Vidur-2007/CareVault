@@ -1,4 +1,4 @@
-import type { ChangeSummary } from '../../../contract/types';
+import type { ChangeSummary } from '../../../contract/legacy/types';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { StatTile } from '../../components/StatTile';

@@ -1,6 +1,6 @@
 // Ingredient names and units. Matching in CareVault is by active ingredient only;
 // brand names are never compared.
-import type { DoseUnit, Ingredient } from '../../contract/types';
+import type { DoseUnit, Ingredient } from '../../contract/legacy/types';
 import { INGREDIENT_SYNONYMS } from '../drugref/synonyms';
 
 // Pharmacopoeia marks printed after a name: 'Paracetamol IP', 'Metformin Ph. Eur.'

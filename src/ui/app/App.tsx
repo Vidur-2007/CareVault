@@ -1,7 +1,7 @@
 import { MotionConfig } from 'motion/react';
 import { useState } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
-import type { CareVaultServices } from '../../contract/services';
+import type { CareVaultServices } from '../../contract/legacy/services';
 import { ToastProvider } from '../components/Toast';
 import { CloudNoticeProvider } from './providers/CloudNoticeProvider';
 import { ProfileProvider } from './providers/ProfileProvider';

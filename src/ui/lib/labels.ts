@@ -1,4 +1,4 @@
-import type { DocumentRecord, DocumentType } from '../../contract/types';
+import type { DocumentRecord, DocumentType } from '../../contract/legacy/types';
 
 export const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
   prescription: 'Prescription',

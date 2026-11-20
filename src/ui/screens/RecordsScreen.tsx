@@ -2,7 +2,7 @@
 import { FolderOpen, Grid2x2, List, Search, Star, Upload } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import type { DocumentRecord, PrescriptionDiff } from '../../contract/types';
+import type { DocumentRecord, PrescriptionDiff } from '../../contract/legacy/types';
 import { Button } from '../components/Button';
 import { DocumentCard } from '../components/DocumentCard';
 import { DocumentThumbnail } from '../components/DocumentThumbnail';

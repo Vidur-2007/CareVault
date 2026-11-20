@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ServiceError } from '../../contract/types';
+import { ServiceError } from '../../contract/legacy/types';
 import { friendlyMessage, toServiceError } from './toServiceError';
 
 describe('friendly error text', () => {

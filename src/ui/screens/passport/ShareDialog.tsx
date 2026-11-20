@@ -1,7 +1,7 @@
 // Share the passport with a QR link (UI spec 7.9): expiry, create, QR, copy, revoke, active links.
 import { Copy, Link2, Trash2 } from 'lucide-react';
 import { useId, useState } from 'react';
-import type { Passport, ShareLink } from '../../../contract/types';
+import type { Passport, ShareLink } from '../../../contract/legacy/types';
 import { Button } from '../../components/Button';
 import { CloudNotice } from '../../components/CloudNotice';
 import { Dialog } from '../../components/Dialog';

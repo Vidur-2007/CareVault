@@ -1,6 +1,6 @@
 import { FileText, Image as ImageIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { DocumentRecord } from '../../contract/types';
+import type { DocumentRecord } from '../../contract/legacy/types';
 import { useServices } from '../hooks/useContexts';
 import { canRenderPdf, openPdf, renderPdfPage } from './pdfPreview';
 

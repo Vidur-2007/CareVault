@@ -2,8 +2,8 @@
 import { Grid2x2, List } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { expected, IDS, sampleDocuments, sampleMedicines, sampleProfile, sampleReviewItems } from '../../contract/fixtures/sampleCase';
-import type { Profile, ReviewItem } from '../../contract/types';
+import { expected, IDS, sampleDocuments, sampleMedicines, sampleProfile, sampleReviewItems } from '../../contract/legacy/fixtures/sampleCase';
+import type { Profile, ReviewItem } from '../../contract/legacy/types';
 import { NAV_ITEMS } from '../app/navItems';
 import {
   BottomTabs,

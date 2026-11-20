@@ -3,14 +3,14 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { IDS } from '../../contract/fixtures/sampleCase';
-import { ServiceError } from '../../contract/types';
+import { IDS } from '../../contract/legacy/fixtures/sampleCase';
+import { ServiceError } from '../../contract/legacy/types';
 import { App } from '../app/App';
 import { routes } from '../app/routes';
 import { createMockServices } from '../mock/createMockServices';
 import { orderRows, unansweredCount } from './visit/visitText';
-import { expected, sampleReviewItems } from '../../contract/fixtures/sampleCase';
-import type { PrescriptionDiffRow } from '../../contract/types';
+import { expected, sampleReviewItems } from '../../contract/legacy/fixtures/sampleCase';
+import type { PrescriptionDiffRow } from '../../contract/legacy/types';
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-14T09:00:00') });

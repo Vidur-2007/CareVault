@@ -1,6 +1,6 @@
 // Duplicate ingredients and daily totals. CareVault adds up what was entered. It never
 // compares a total with any limit.
-import type { DoseUnit, IngredientTotal, Medicine } from '../../contract/types';
+import type { DoseUnit, IngredientTotal, Medicine } from '../../contract/legacy/types';
 import {
   fromBaseUnit,
   isMassUnit,

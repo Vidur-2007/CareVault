@@ -1,6 +1,6 @@
 // Date and number formatting. ISO dates ('YYYY-MM-DD') are parsed by hand so the
 // device time zone never shifts the calendar day.
-import type { ISODate, ISODateTime } from '../../contract/types';
+import type { ISODate, ISODateTime } from '../../contract/legacy/types';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

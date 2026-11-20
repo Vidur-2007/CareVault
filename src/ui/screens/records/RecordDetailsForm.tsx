@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import type { DocumentType, ExtractionCandidate, Prescriber } from '../../../contract/types';
+import type { DocumentType, ExtractionCandidate, Prescriber } from '../../../contract/legacy/types';
 import { Button } from '../../components/Button';
 import { Field } from '../../components/Field';
 import { DOCUMENT_TYPE_LABEL } from '../../lib/labels';

@@ -1,8 +1,8 @@
 // The real implementation of the contract: Dexie for storage, the rules engine for every
 // decision. Each write loads the profile's state, asks the rules for a plan, and stores
 // the plan in one transaction.
-import type { CareVaultServices } from '../contract/services';
-import { IDS, SAMPLE_TODAY } from '../contract/fixtures/sampleCase';
+import type { CareVaultServices } from '../contract/legacy/services';
+import { IDS, SAMPLE_TODAY } from '../contract/legacy/fixtures/sampleCase';
 import {
   ServiceError,
   type DocumentRecord,
@@ -12,7 +12,7 @@ import {
   type Medicine,
   type Profile,
   type Visit,
-} from '../contract/types';
+} from '../contract/legacy/types';
 import { exportBackup, importBackup } from './backup/backup';
 import { createChangeNotifier } from './db/events';
 import { byTime, createRepos, type Repos } from './db/repos';

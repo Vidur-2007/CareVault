@@ -14,8 +14,8 @@ import {
   sampleProfile,
   sampleReviewItems,
   sampleVisit,
-} from '../../contract/fixtures/sampleCase';
-import type { ID, ISODateTime, MedicineStatus } from '../../contract/types';
+} from '../../contract/legacy/fixtures/sampleCase';
+import type { ID, ISODateTime, MedicineStatus } from '../../contract/legacy/types';
 import { buildChangeSummary, buildPassport } from './passport';
 import { buildDiff, planPrescriptionApply, type LineInput } from './prescriptions';
 import { expectedReviewItems, planReviewRefresh, withReviewRefresh } from './review';

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import type { Medicine } from '../../contract/types';
+import type { Medicine } from '../../contract/legacy/types';
 import { cx } from '../lib/cx';
 import { ingredientLine } from './lineText';
 import { Pill } from './Pill';

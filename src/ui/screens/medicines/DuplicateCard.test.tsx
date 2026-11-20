@@ -2,8 +2,8 @@ import '../../test/configureTesting';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { expected, IDS, sampleMedicines } from '../../../contract/fixtures/sampleCase';
-import type { IngredientTotal, Medicine } from '../../../contract/types';
+import { expected, IDS, sampleMedicines } from '../../../contract/legacy/fixtures/sampleCase';
+import type { IngredientTotal, Medicine } from '../../../contract/legacy/types';
 import { pronounsFor } from '../../lib/pronouns';
 import { DUPLICATE_SAFETY_SENTENCE, DuplicateCard } from './DuplicateCard';
 

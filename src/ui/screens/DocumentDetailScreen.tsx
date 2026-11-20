@@ -2,7 +2,7 @@
 import { ArrowLeft, CircleCheck, Star, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import type { PrescriptionLine } from '../../contract/types';
+import type { PrescriptionLine } from '../../contract/legacy/types';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ConfirmDialog } from '../components/ConfirmDialog';

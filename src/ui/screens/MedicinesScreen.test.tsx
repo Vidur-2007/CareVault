@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
-import { IDS, sampleEvents, sampleMedicines } from '../../contract/fixtures/sampleCase';
+import { IDS, sampleEvents, sampleMedicines } from '../../contract/legacy/fixtures/sampleCase';
 import { App } from '../app/App';
 import { routes } from '../app/routes';
 import { createMockServices } from '../mock/createMockServices';

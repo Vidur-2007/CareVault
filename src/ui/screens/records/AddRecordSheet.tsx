@@ -4,7 +4,7 @@ import { CircleCheck, LoaderCircle } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import type { DocumentRecord, ExtractedLine, ExtractionCandidate } from '../../../contract/types';
+import type { DocumentRecord, ExtractedLine, ExtractionCandidate } from '../../../contract/legacy/types';
 import { Button } from '../../components/Button';
 import { CloudConsentPanel } from '../../components/CloudConsentPanel';
 import { ErrorPanel } from '../../components/ErrorPanel';
