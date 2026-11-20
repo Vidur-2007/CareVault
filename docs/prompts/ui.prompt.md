@@ -1,150 +1,149 @@
-# UI prompts (laptop B)
+# UI prompts v2 (laptop B)
 
-How to use this file: paste one phase at a time into Claude on laptop B, from the repository root. Wait until the phase is finished and pushed before pasting the next. Phase 0 runs on `main`; every later phase runs on `feat/ui`.
+**How to use this file.** Paste one prompt at a time into the coding agent on laptop B, from the repository root. Wait until a step is finished and pushed before pasting the next. The steps are in the order they must be built; work at your own pace. Every step runs on the branch `feature/ui`.
 
-Before Phase 0, the human does this once: create an empty GitHub repository named `carevault`, add the second GitHub account as a collaborator, clone it on laptop B, and copy the `docs/` folder (specs, prompts, design PNGs) into it.
+**Rule for every step.** No assistant attribution anywhere. No `Co-Authored-By` trailer, no "Generated with" line, and no mention of any AI assistant in commits, pull requests, code comments or documents. Commits use the human's own git identity.
 
----
+**Where things stand.** Phase 0 is done: laptop A put contract v2, the v2 sample case, a v2 compatibility mock and a v2 core stub on `main`. The v1 app keeps running on `src/contract/legacy` until the merge checkpoint. Laptop B does not wait for laptop A at any point before the merge checkpoint.
 
-## Phase 0: scaffold and contract (on `main`)
+**Before the first prompt, the human does this once:**
 
-```
-You are setting up the CareVault repository. Read docs/specs/00-overview.spec.md fully before doing anything, then docs/specs/02-ui.spec.md, then section 11 of docs/specs/01-core.spec.md (the npm scripts).
-
-Work on the main branch. Do exactly this:
-
-1. Create a Vite + React + TypeScript project in the repository root (keep the existing docs/ folder).
-2. Install, at current stable versions, every dependency both sides will need, so package.json never changes again:
-   react-router, tailwindcss and its Vite integration, motion, lucide-react, vite-plugin-pwa, @fontsource/inter, @fontsource/manrope, dexie, zod, qrcode, pdfjs-dist, tesseract.js, @paddleocr/paddleocr-js, onnxruntime-web, hono, @hono/node-server, @supabase/supabase-js, the current official Google Gen AI SDK for Node, and as dev dependencies: vitest, @testing-library/react, @testing-library/user-event, jsdom, fake-indexeddb, tsx, eslint with the TypeScript and React plugins, and the needed @types packages.
-   Check each package's current documentation for the correct package name and setup; do not rely on memory.
-3. Create src/contract/types.ts and src/contract/services.ts with the exact contents of sections 8.1 and 8.2 of the overview spec.
-4. Create src/contract/fixtures/sampleCase.ts exporting the sample case from section 10 of the overview spec as typed constants with fixed ids and fixed timestamps: the profile, prescribers, medicines in their final expected state, events, documents, prescription lines for all three prescriptions, the three open review items, the visit with its two questions, and an `expected` object holding the diff rows, the ingredient totals (paracetamol 3450 mg/day from 1950 + 1500), the change summary and the status counts. Also export `SAMPLE_TODAY = '2026-11-14'`.
-5. Create stubs:
-   - src/core/createRealServices.ts exporting createRealServices() that throws "not implemented" from every method.
-   - src/ui/mock/createMockServices.ts exporting createMockServices() that throws "not implemented" from every method.
-   - src/services/index.ts exactly as shown in section 5 of the overview spec.
-   - src/main.tsx rendering a placeholder page that says "CareVault scaffold".
-6. Add the npm scripts from section 11 of the core spec. Configure Vitest with jsdom. Configure the Vite dev server to proxy /api to the local server port.
-7. Create .env.example with the variables from section 12 of the overview spec, .gitignore (node_modules, dist, .env), and empty files docs/progress-core.md, docs/progress-ui.md, docs/contract-requests-core.md, docs/contract-requests-ui.md.
-8. Create .github/workflows/ci.yml: on push and pull request, run npm ci and npm run check.
-9. Add one test that imports the fixtures and checks 1950 + 1500 equals expected paracetamol perDay, so the test runner has something to run.
-10. Run npm run check and fix anything that fails.
-11. Commit as "chore: scaffold, contract and fixtures" and push to origin main.
-12. Create the branch feat/ui and push it.
-
-Finish by printing: the installed version of every dependency, and the full contents of src/contract/services.ts so the human can confirm it matches the spec. Do not start any other work.
-```
-
-After Phase 0 is pushed, tell laptop A to start. Then copy `.env.example` to `.env` and set `VITE_USE_MOCK=true`.
+1. Run `git checkout main && git pull`, then `npm ci`.
+2. Check that `.env` exists (copy `.env.example` if not) and set `VITE_USE_MOCK=true` for building the screens.
 
 ---
 
-## Phase 1: design system, shell and mock
+## Step 0: Review Phase 0 and branch
 
 ```
-Read docs/specs/00-overview.spec.md fully, then docs/specs/02-ui.spec.md, then look at the five images in docs/design/. You are on branch feat/ui. You may edit only the paths listed in section 1 of the UI spec. Never import from src/core. If you believe a frozen file or the contract must change, stop and write the request in docs/contract-requests-ui.md instead of editing it.
+Read docs/specs/00-overview.spec.md and docs/specs/02-ui.spec.md completely. You are laptop B (UI). Phase 0 is already on main, written by laptop A (overview section 7).
 
-Build:
-1. Tailwind theme with the colour, type, radius and shadow tokens from section 3 of the UI spec; self-hosted Manrope and Inter; base styles in src/ui/styles. Check the current Tailwind documentation for how themes are configured in the installed version.
-2. The components listed in section 3, each with its states, plus a private /dev/components route that shows them all (remove it from navigation; keep it for review).
-3. Motion presets in src/ui/app/motion.ts following section 4, with reduced-motion handling in one place.
-4. The app shell from section 6 (TopNav on desktop, BottomTabs on phone, ProfileSwitcher), React Router with every route from section 11 of the overview spec pointing at placeholder screens, and the profile context.
-5. src/ui/mock/createMockServices.ts: a complete in-memory implementation of CareVaultServices backed by src/contract/fixtures/sampleCase.ts, with artificial delay, simple versions of the behaviour rules in section 9 of the overview spec, working subscribe(), and the failure switch described in section 1 of the UI spec.
-6. useServiceQuery and useServiceAction hooks from section 5.
+1. Create the branch feature/ui from the current main and push it with upstream tracking.
+2. Run npm run check and confirm it passes.
+3. Review, without editing them: src/contract/types.ts, src/contract/services.ts and src/contract/today.ts against overview section 8; src/contract/fixtures/sampleCase.ts against overview section 10; and the v1/v2 side-by-side setup in overview section 6 (src/services/index.ts, src/ui/mock/v2/createMockServicesV2.ts).
+4. Write anything you disagree with, or anything the UI cannot be built from, in docs/contract-requests-ui.md with a reason, and tell the human. Do not change src/contract, src/core or src/services yourself.
 
-Tests: the mock returns the fixtures' expected counts; ReviewCard, Pill and Button render and respond to clicks.
-
-Run npm run check. Append a short entry to docs/progress-ui.md. Commit as "ui: design system, shell, mock services" and push feat/ui. Stop.
+Record the review as the first entry of a new "## v2" section in docs/progress-ui.md. Commit as "ui: review of contract v2" and push feature/ui. Stop.
 ```
 
-## Phase 2: Welcome and Review
+## Step 1: Mock services v2
 
 ```
-Continue on feat/ui under the same ownership rules. Build sections 7.1 and 7.2 of the UI spec.
+Continue on feature/ui. You may edit only the paths in section 1 of docs/specs/02-ui.spec.md. The v1 app must keep working until the merge checkpoint (overview section 6): build the v2 screens against src/contract and createServicesV2(), and keep the export name createMockServicesV2. If you believe the contract or a frozen file must change, stop and write the request in docs/contract-requests-ui.md instead.
 
-The Review screen must match docs/design/CareVault-Main.png on desktop and docs/design/CareVault-Mobile.png at 390 px: same structure, wording, colours and proportions. On phone the list scrolls and nothing is hidden behind the tab bar.
+Build section 5 of the UI spec: replace the Phase 0 compatibility mock in src/ui/mock/v2/createMockServicesV2.ts with in-memory mock services for every method of contract v2, from the v2 fixtures, with the artificial delay and the localStorage.cvMockFail switches (including 'stale', 'locked', 'cloud_consent', 'verification', 'reading', 'all'). Apply simple versions of overview section 9: proposals with all row kinds, the verification gate, stale revisions, duplicates, snapshots and shares bound to a snapshot, attention items, deterministic search and ask, and todayFor.
 
-Include: all four review kinds with their actions, the ConfirmDialog for "Stopped", toasts with Undo, the Next visit panel, the "Since the last visit" tiles with count-up, the recent records row, and the loading, empty and error states. The Welcome screen has "Try the sample profile" and the create-profile form with validation.
+Write a test that the mock reproduces every value in fixtures `expected`, and a test per failure switch.
 
-Tests: resolving an item removes its card and calls review.resolve with the right resolution; the empty state renders when there are no open items.
-
-Run npm run check. Compare the result against both images and list any differences in docs/progress-ui.md. Commit as "ui: welcome and review" and push. Stop.
+Run npm run check. Add an entry to the "## v2" section of docs/progress-ui.md: what was built, what differs from the spec, open questions. Commit as "ui: mock services v2" and push. Stop.
 ```
 
-## Phase 3: Medicines and the scan flow
+## Step 2: Shell, navigation, profile menu, Welcome
 
 ```
-Continue on feat/ui. Build sections 7.3, 7.4 and 7.5 of the UI spec.
+Continue on feature/ui. Build section 3 and screen 4.1 of the UI spec as the v2 app, using createServicesV2() and switching src/main.tsx to it: the v2 navigation (Home, Records, Passport, Ask, with Settings behind the profile menu), every v2 route pointing at its screen or a placeholder, document.title per route, todayFor for every date, cached data cleared on profile switch, and Welcome with the "I manage my own records" option and the emergency contact.
 
-The Medicines screen must match docs/design/CareVault-Medicines.png. Use the exact safety sentence under the duplicate card. Show the total only when IngredientTotal.complete is true.
+Retire the v1 routes and screens that the spec retires. Keep the design system and reusable components.
 
-The scan flow has four steps (capture, reading, confirm, done). Build the cloud-consent branch for the cloud_consent_required error and show the CloudNotice whenever a photo is sent. Build the confirm form as a reusable component (SourceViewer beside editable fields, "Check this" markers on extracted fields, warnings under fields), because Phase 4 reuses it for prescription lines.
+Tests: every route renders; titles are set; switching profile never shows the previous profile's data, even briefly.
 
-Medicine detail shows the history timeline and the status actions.
-
-Tests: the duplicate card with complete and incomplete totals; extracted markers clear when a field is edited or confirmed; the consent panel appears on the consent error and nothing is sent without a click.
-
-Run npm run check. Check the page at 390, 768 and 1280 px. Update docs/progress-ui.md. Commit as "ui: medicines and scan flow" and push. Stop.
+Run npm run check. Update docs/progress-ui.md. Commit as "ui: v2 shell and navigation" and push. Stop.
 ```
 
-## Phase 4: Records vault
+## Step 3: Records, search and record detail
 
 ```
-Continue on feat/ui. Build sections 7.6 and 7.7 of the UI spec.
+Continue on feature/ui. Build screens 4.3 and 4.5 of the UI spec (verification and review links come in later steps): search with filters and "Matched:" labels, grid and timeline with an undated group, source shown on each item, the record detail with metadata, date source and page coverage, edit, star, file, and delete with the snapshots it affects and the offer to revoke their links.
 
-Records: search, category chips with counts, starred toggle, Grid and Timeline views, the upload Sheet with all its states (selecting, reading, review details, saving, saved, duplicate found, failed), first-page thumbnails with pdfjs-dist (read its current documentation for worker setup under Vite), and the empty state.
+Tests: search by test, doctor, facility and date; undated records in their own group; delete listing snapshots and revoking links.
 
-A prescription upload continues into the line-confirm step (reuse the Phase 3 form, one card per extracted line, with add and remove line), then calls prescriptions.apply and navigates to /visit showing the new comparison.
-
-Document detail: preview with page navigation and zoom, metadata, star, confirm, delete with confirmation.
-
-Tests: search filters the list; the duplicate dialog appears when add returns duplicateOf; confirming lines calls prescriptions.apply with the edited values.
-
-Run npm run check. Update docs/progress-ui.md. Commit as "ui: records vault and timeline" and push. Stop.
+Run npm run check. Update docs/progress-ui.md. Commit as "ui: records and search" and push. Stop.
 ```
 
-## Phase 5: Visit, passport and sharing
+## Step 4: Add a record and Check the values
 
 ```
-Continue on feat/ui. Build sections 7.8, 7.9 and 7.10 of the UI spec.
+Continue on feature/ui. Build screens 4.4 and 4.6 of the UI spec: one add flow for camera, file and Gmail that saves the original first; the duplicate choices; reading progress with page coverage; the cloud consent panel; the locked PDF message; details with "Add this doctor" and the patient-mismatch choices; the pack-photo ending; and Check the values with the original beside each flagged field, the literal value read, reasons, page jump, Correct / It is right / Leave unknown / Retake the photo.
 
-/visit must match docs/design/CareVault-Changes.png: appointment-mode pill, the two date tiles, one DiffRow card per row in the order added, changed, review, unchanged, with the struck-through and highlighted values, the answer buttons on review rows, questions for the doctor, reports to share, and the status panel (sticky bottom bar on phone). Handle "no next visit" and "no previous prescription".
+Tests: each duplicate choice; consent panel; locked PDF; partial pages; correcting "7? mg" to 75 mg; leave unknown; retake keeps earlier decisions; mismatch handling; leaving the flow keeps the original as "Not yet filed".
 
-/visit/passport must match docs/design/CareVault-Passport.png and print cleanly on one A4 page: write a print stylesheet, hide the toolbar in print, and check the print preview.
-
-Share dialog: expiry choice, create link, QR code rendered with the qrcode library, copy link, active links with revoke, and the CloudNotice during upload. Use the exact explanation sentence from the spec.
-
-/share/:id: no shell, reads the key from location.hash, renders the read-only passport, and has distinct states for loading, expired, revoked, not found and missing key.
-
-Tests: each DiffRow kind renders its pill and cells; answering a review row updates the status panel count; the shared view shows the expired state when sharing.open rejects with code 'expired'.
-
-Run npm run check. Update docs/progress-ui.md. Commit as "ui: visit, passport, sharing" and push. Stop.
+Run npm run check. Update docs/progress-ui.md. Commit as "ui: add a record and field verification" and push. Stop.
 ```
 
-## Phase 6: settings, PWA, states and accessibility
+## Step 5: Passport and the routine
 
 ```
-Continue on feat/ui. Build sections 7.11, 8, 9, 10 and 11 of the UI spec.
+Continue on feature/ui. Build screens 4.8 and 4.9 of the UI spec: the live passport with the patient strip and next visit; current medicines with source labels and last-confirmed dates; "Current use not confirmed" with the legacy batch review that never blocks printing; manual "Add a medicine he takes"; the possible duplicate ingredient card; allergies with three states, conditions and procedures; recent changes; questions; reports to share; the list of earlier passports; and the medicine detail with before-and-after history and Undo.
 
-1. Settings: profiles, cloud reading toggle with the plain explanation, Gmail import (connect, candidate list, import, session-only note), backup export and import with passphrase fields and the replace-data confirmation, reload sample data, About.
-2. PWA: manifest, icons with the CV mark, service worker through vite-plugin-pwa that precaches the shell and does not cache /api.
-3. Go through every screen and confirm the four states exist (loading, empty, ready, error). Use the mock failure switch to see each error state.
-4. Accessibility pass: keyboard only, visible focus, labels, one h1 per page, live region for toasts, 200% zoom, reduced motion.
-5. Responsive pass at 390, 768 and 1280 px on every screen.
-6. Add a test that fails if any file under src/ui imports from src/core.
+Tests: manual add without a prescription; status change with confirmation; undo and undo refused; legacy batch; the three allergy states; the duplicate card with complete and incomplete totals.
 
-List anything you could not fix in docs/progress-ui.md. Run npm run check. Commit as "ui: settings, PWA, states, accessibility" and push. Then open a pull request from feat/ui into main titled "UI: all screens against the service contract". Stop.
+Run npm run check. Update docs/progress-ui.md. Commit as "ui: passport and reported routine" and push. Stop.
 ```
 
-## Phase 7: polish on real services (after the core side has pushed `integration`)
+## Step 6: Review changes
 
 ```
-The integration branch now runs on the real services. Pull it and work there, still only inside the UI-owned paths.
+Continue on feature/ui. Read overview sections 9.2 and 9.3 again. Build screen 4.7 of the UI spec: one card per asked row with exactly the questions and choices in the spec; "No change" and passive rows collapsed without buttons; blocked rows sending the user to Check the values and back; choices sent together with expectedRevision; confirmation before any "stopped" or "not taking"; stale handling that reloads and keeps matching choices; Not now; and the after-save summary with per-change Undo.
 
-1. Set VITE_USE_MOCK=false and run the app with the local server. Walk the demo path from section 13 of the overview spec on a 390 px wide screen and on desktop. Fix every UI problem that appears with real data: long product names, missing fields, slow reading, real error messages. If a problem is in the core, write it in docs/contract-requests-ui.md and tell the human.
-2. Tune motion and loading states to the real timings, especially the scan step.
-3. Write README.md: what CareVault does and for whom, a screenshot of each main screen, how the privacy design works (what stays on the phone, the three cases where data leaves), the tech stack, how to run it locally, the sample profile, and a clear "not medical advice, synthetic data only" note.
-4. Capture clean screenshots of the five main screens into docs/screenshots/ for the project page.
+Tests: the demo prescription's rows exactly as in fixtures `expected`; blocked row → verify → return → choose; skip leaves nothing on Home; Not now then reopen from the record page; stale reload keeping choices; summary and Undo.
 
-Run npm run check. Update docs/progress-ui.md. Commit as "ui: polish on real services, README" and push integration. Stop.
+Run npm run check. Update docs/progress-ui.md. Commit as "ui: contextual prescription review" and push. Stop.
+```
+
+## Step 7: Snapshots, print and share
+
+```
+Continue on feature/ui. Build section 4.11 of the UI spec: the snapshot view; print that always creates or reuses a snapshot first and prints a QR only for a link to that exact snapshot; print styles that continue on further pages rather than hide allergies, unconfirmed entries or flags; share bound to a snapshot with expiry choices, QR, copy and revoke; and the public share page with its states.
+
+Never choose a QR from a list of links by expiry.
+
+Tests: print creates or reuses a snapshot; the printed QR only for that snapshot; two profiles never cross; a snapshot reads the same after a routine edit and after a document delete; the share page states.
+
+Run npm run check. Update docs/progress-ui.md. Commit as "ui: snapshots, print and share" and push. Stop.
+```
+
+## Step 8: Ask
+
+```
+Continue on feature/ui. Build screen 4.12 of the UI spec: the question box with example chips, the interpretedAs sentence, the factual answer text, result cards that open the record or passport section, the not-understood hint, and the footer. No model and no chat history.
+
+Tests: each example chip; understood false; results open the right record.
+
+Run npm run check. Update docs/progress-ui.md. Commit as "ui: ask CareVault" and push. Stop.
+```
+
+## Step 9: Gmail import, Home, Settings
+
+```
+Continue on feature/ui. Build screens 4.2, 4.10 and 4.13 of the UI spec: Home with the passport card, next visit, the "Needs attention" list limited to its four kinds, Add a record, the Ask box and recent records; Gmail import with one row per PDF attachment and "Already imported" per profile, joining the add flow; and Settings with profiles, doctors, cloud reading, Gmail, backup with the version note, older share links (sharing.listUnowned) and sample data.
+
+Tests: two attachments of one email are separate rows; "Already imported" per profile; Home shows only the four attention kinds and never a medicine-status question; older links can be revoked.
+
+Run npm run check. Update docs/progress-ui.md. Commit as "ui: home, Gmail import and settings" and push. Stop.
+```
+
+## Step 10: Accessibility, responsive and polish
+
+```
+Continue on feature/ui. Do step 10 of the UI spec: run an axe check on every route at 1280 px and 390 px (install axe-core in a scratch folder, not in package.json, and inject it into the page), fix every serious and critical finding, clear the v1 findings listed in the spec, and confirm no horizontal scroll at 390 px and tap targets of at least 44 px.
+
+Record the before-and-after findings in docs/progress-ui.md. Run npm run check. Commit as "ui: accessibility and responsive polish" and push. Stop.
+```
+
+## Step 11: Ready for the merge checkpoint
+
+```
+Continue on feature/ui. Do step 11 of the UI spec: update README.md (what CareVault v2 is, how to run it, the first release story), take screenshots of every screen at desktop and phone size into docs/screenshots/, and walk the first release story against the mock.
+
+Then merge main into feature/ui, run npm run check, push, and open a pull request into main titled "UI v2: records, verification, routine review, passport". Write a plain description of what changed and what was not tested, with no assistant attribution. Stop.
+```
+
+## Merge checkpoint (after laptop A's integration pass)
+
+```
+Both pull requests are merged and laptop A has pushed integration-v2 (with the v1 side removed). Check it out.
+
+Run the app with VITE_USE_MOCK=false against the real services. Walk the first release story and the ten acceptance tests in overview section 13 at desktop and phone sizes. Fix only UI-side mismatches in src/ui. If a fix needs a core or contract change, write it in docs/contract-requests-ui.md and tell the human. Polish copy, empty states and print output on the real data.
+
+Update docs/progress-ui.md with the results. Commit as "ui: polish on real services", push integration-v2, and tell the human it is ready to merge into main. Stop.
 ```

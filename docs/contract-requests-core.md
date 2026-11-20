@@ -18,3 +18,7 @@ addPrescriber(profileId: T.ID, input: { name: string; specialty: string }): Prom
 Behaviour the core would implement: trims both fields, rejects an empty name, and returns the existing prescriber when the profile already has one with the same name (ignoring case), so scanning a second prescription from the same doctor does not create a duplicate.
 
 **Until it is agreed:** nothing in the frozen files was changed. The core has no workaround; prescribers exist only through the sample profile.
+
+## Status (v2)
+
+Request 1 is resolved in contract v2: `profiles.addPrescriber(profileId, { name, specialty })` is part of `docs/specs/00-overview.spec.md`, section 8.2. New requests for v2 go below this line.

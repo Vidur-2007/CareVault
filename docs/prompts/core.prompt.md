@@ -1,104 +1,158 @@
-# Core prompts (laptop A)
+# Core prompts v2 (laptop A)
 
-How to use this file: paste one phase at a time into Claude on laptop A, from the repository root. Wait until the phase is finished and pushed before pasting the next. Every phase runs on `feat/core`.
+**How to use this file.** Paste one prompt at a time into the coding agent on laptop A, from the repository root. Wait until a step is finished and pushed before pasting the next. The steps are in the order they must be built; work at your own pace. Every step runs on the branch `feature/core`.
 
-Before Phase 1, the human does this once: wait for laptop B to push Phase 0 to `main`, then `git clone` the repository, run `npm install`, and run `git checkout -b feat/core` followed by `git push -u origin feat/core`. Copy `.env.example` to `.env`.
+**Rule for every step.** No assistant attribution anywhere. No `Co-Authored-By` trailer, no "Generated with" line, and no mention of any AI assistant in commits, pull requests, code comments or documents. Commits use the human's own git identity.
+
+**Where things stand.** Phase 0 is done: laptop A put contract v2, the v2 sample case, a v2 compatibility mock and a v2 core stub on `main`, and created `feature/core` from it. The v1 app keeps running on `src/contract/legacy` until the merge checkpoint. Laptop A starts with step 1; laptop B starts independently on `feature/ui`.
+
+**Before step 1, the human checks once:**
+
+1. `git checkout feature/core && git pull` succeeds.
+2. `npm ci` has been run on this laptop since the last pull of `main`.
+3. `.env` exists (copy `.env.example` if not).
 
 ---
 
-## Phase 1: local database
+## Step 1: Storage v2 and migration
 
 ```
-Read docs/specs/00-overview.spec.md and docs/specs/01-core.spec.md. You are on branch feat/core. You may edit only the paths listed in section 1 of the core spec. If you believe a frozen file or the contract must change, stop and write the request in docs/contract-requests-core.md instead of editing it.
+Read docs/specs/00-overview.spec.md and docs/specs/01-core.spec.md completely. You are laptop A (core) on branch feature/core. Phase 0 is already on main (overview section 7); do not edit src/contract. The v1 app must keep working until the merge checkpoint (overview section 6): build v2 behind createRealServicesV2 and keep the v1 tests passing. You may edit only the paths in section 1 of docs/specs/01-core.spec.md. If you believe the contract or a frozen file must change, stop and write the request in docs/contract-requests-core.md instead.
 
-Build section 3 of the core spec:
-- src/core/db/schema.ts, repos.ts, events.ts with the tables and indexes listed.
-- src/core/db/seed.ts: loadSampleProfile() that writes the sample case from src/contract/fixtures/sampleCase.ts into the database. It must be idempotent: calling it twice leaves one copy.
-- Tests with fake-indexeddb: every repo round-trips its type; multi-table writes roll back together on failure; subscribe listeners fire once per write batch.
+Build step 1 of the core spec: Dexie version 2 with the new and changed tables, the per-profile routine revision counter, the pure v1-to-v2 mapping in src/core/db/migrate.ts implementing overview section 9.9 exactly, and the v2 seed of both sample profiles.
 
-Run npm run check. Append a short entry to docs/progress-core.md (what was built, anything the UI side should know). Commit as "core: local database and seed" and push feat/core. Stop.
+Write the tests first. They must include a populated v1 database built in the test with the v1 schema, upgraded in place, asserting that no document, file, medicine, event, question or share revocation token is lost and that every legacy medicine lands in the state of section 9.9.
+
+Run npm run check. Add an entry to a "## v2" section of docs/progress-core.md: what was built, what the UI side should know, what was not tested. Commit as "core: storage v2 and migration from v1" and push. Stop.
 ```
 
-## Phase 2: rules engine
+## Step 2: Backup v2
 
 ```
-Continue on feat/core under the same ownership rules. Read section 9 and section 10 of the overview spec and section 4 of the core spec again before writing code.
+Continue on feature/core under the same rules. Build step 2 of the core spec: backup format v2 with a consistent read, and an importer that accepts v1 (through migrateV1) and v2, validates references before replacing anything, and replaces everything in one transaction.
 
-Build src/core/rules as pure functions with no database or network access: normalize, totals, diff, status, review, passport, change summary. Write the tests first.
+Tests: v2 round trip; a v1 backup produced in the test with the v1 format restores into a clean v2 database with nothing lost; wrong passphrase gives bad_passphrase and changes nothing; a corrupt file gives unsupported_file.
 
-Required tests:
-- The golden test: start from the raw inputs of the sample case (the three prescriptions applied in date order, the two home-scan products, the Pantoprazole history) and assert every value in fixtures `expected`, including the diff rows, the four statuses, the three open review items, the 3450 mg/day total and the change summary.
-- Every edge case listed in section 4 of the core spec.
-
-Rules for this phase: no model calls, no randomness inside rules (ids and timestamps are passed in), totals rounded to at most 3 decimals. Report branch coverage for src/core/rules and raise it until every branch is covered.
-
-Run npm run check. Update docs/progress-core.md. Commit as "core: rules engine with golden test" and push. Stop.
+Run npm run check. Update docs/progress-core.md. Commit as "core: backup v2 reads v1 and v2" and push. Stop.
 ```
 
-## Phase 3: real services
+## Step 3: Documents v2 and drug reference evidence levels
 
 ```
-Continue on feat/core. Implement createRealServices() in src/core/createRealServices.ts for these groups: profiles, medicines, documents (including sha256 duplicate detection and file storage), prescriptions, review, visits (including buildPassport and changeSummary), settings, and subscribe. Each method loads state through the repos, calls the rules, and writes the plan inside one transaction.
+Continue on feature/core. Build step 3 of the core spec: documents.add storing the original first, exact duplicates across every source within one profile, documents.update / fileRecord / assignProfile / remove (with the snapshots and active shares it reports), documents.file including the shipped sample documents, profiles.update and profiles.addPrescriber, and the evidence level on every drug reference entry according to src/core/drugref/SOURCES.md.
 
-Leave reading, sharing, gmail and backup rejecting with ServiceError('unknown', 'not built yet') for now.
+Tests: duplicates across sources and never across profiles; remove reports snapshots and shares; addPrescriber returns the existing doctor on a case-insensitive match and rejects an empty name; file type sniffing.
 
-Add a contract test that calls every implemented method against fake-indexeddb after loadSampleProfile() and asserts the results equal the fixtures `expected` values. Add tests for: resolving each review resolution, undo-style reversal by calling setStatus, applying a new prescription through the service and reading latestDiff back.
-
-Run npm run check. Update docs/progress-core.md with any behaviour the UI mock should copy. Commit as "core: services over database and rules" and push. Stop.
+Run npm run check. Update docs/progress-core.md. Commit as "core: documents v2 and prescribers" and push. Stop.
 ```
 
-## Phase 4: document reading
+## Step 4: Reading v2 and field evidence
 
 ```
-Continue on feat/core. Build sections 5 and 6 of the core spec.
+Continue on feature/core. Read the current documentation of pdf.js, Tesseract.js and PaddleOCR.js for page handling, password errors, and word-level confidence and boxes before writing code.
 
-1. Drug reference: src/core/drugref/table.json, lookup.ts and SOURCES.md. Include every product in the sample case and about 40 common Indian products. Only include a composition you can confirm from a pack label or the manufacturer's page, and record the source. If you cannot confirm an entry, leave it out and list it under "unconfirmed" in SOURCES.md for the human.
-2. Synthetic sample documents in public/sample-docs/: the six documents from the sample case, generated from HTML with an invented clinic name.
-3. OcrEngine interface with two implementations (PaddleOCR.js and Tesseract.js), loaded lazily. Read the current documentation of both libraries before writing code.
-4. pdfText.ts, parse.ts, quality.ts, read.ts as specified. parse.ts must be deterministic and unit-tested with raw text samples for: a pack label with a composition line, a printed prescription with 1-0-1 dosing, a lab report header.
-5. Wire services.reading.read. The cloud path calls POST /api/extract through src/core/reading/cloud.ts; until the server exists, test it with a mocked fetch.
+Build step 4 of the core spec: reading.read on a stored document; every page of text PDFs, up to 4 OCR pages of scanned PDFs with pagesRead and pageCount; locked_pdf; rules/classify.ts; rules/patient.ts; rules/verify.ts with every flag reason from overview section 9.2; documents.fields and documents.reviewFields keeping human decisions across re-reads; cloud reading only with consent and always flagged.
 
-Then write a small manual test page under src/core/reading/dev/ (not linked from the app) that lets the human drop an image and see timing and output for each engine. Ask the human to run it on a phone with ten real pack photos, and record their results and the engine decision in docs/progress-core.md. Do not choose the engine yourself without those results; default to Tesseract.js until they are in.
+Create small synthetic fixtures under src/core/reading/fixtures/ (text PDF, scanned multi-page PDF, blurry photo, locked PDF). Tests: every flag reason, including a strength read as "7? mg" and "6?0 mg" with raw kept literally; human decisions survive a re-read; no fetch at all without consent; locked_pdf; partial page coverage reported.
 
-Run npm run check. Commit as "core: document reading and drug reference" and push. Stop.
+Run npm run check. Update docs/progress-core.md. Commit as "core: reading v2 with field evidence" and push. Stop.
 ```
 
-## Phase 5: server, sharing and backup
+## Step 5: Sample documents
 
 ```
-Continue on feat/core. Build sections 7, 9 and 10 of the core spec.
+Continue on feature/core. Build step 5 of the core spec: public/sample-docs/rx-rao-2026-11-13.pdf (the demo prescription of overview section 10, with the Aspirin strength printed so that the real reader flags it as needs_verification), the lab report PDF for Lakshmi Iyer, and the HbA1c PDF without a printed date. Generate them from HTML kept in src/core/reading/dev/sample-docs-html/, with invented clinic and lab names and the line "Synthetic sample document" on each page.
 
-1. server/: Hono app with static serving and SPA fallback, POST /api/extract, the three /api/share routes, GET /api/health, zod validation, size limits, rate limit, and server/schema.sql. Read the current Gemini API documentation for structured JSON output and for the model ids available on the free tier; take the model id from GEMINI_MODEL.
-2. src/core/share: crypto.ts and client.ts; wire services.sharing (create, list, revoke, open).
-3. src/core/backup: wire services.backup.
-4. Tests: encrypt then decrypt round-trip; a wrong key fails; share routes with a faked Supabase client (create, fetch, expired gives 410, revoked gives 410, wrong revoke token gives 403); backup round-trip and wrong passphrase.
+Prove it with a test that runs the real reader on the demo prescription and asserts the four lines and the flagged Aspirin strength.
 
-Then give the human a numbered checklist, and write the same list into docs/progress-core.md: create the Supabase project and run schema.sql; create the Gemini API key in AI Studio; fill .env; run the server locally; confirm a share link opens in a second browser and stops working after revoke.
-
-Run npm run check. Commit as "core: server, encrypted sharing, backup" and push. Stop.
+Run npm run check. Update docs/progress-core.md. Commit as "core: v2 sample documents" and push. Stop.
 ```
 
-## Phase 6: Gmail import
+## Step 6: The routine and contextual review
 
 ```
-Continue on feat/core. Build section 8 of the core spec: src/core/gmail/token.ts and api.ts, and wire services.gmail. Read the current Google Identity Services documentation for the token model first.
+Continue on feature/core. Read overview sections 9.2 to 9.4 and 10 again before writing code.
 
-The access token lives in memory only. Imported attachments become DocumentRecords with source 'email' and state 'pending_confirmation', and open a new_document review item. Test api.ts with mocked fetch responses.
+Build step 6 of the core spec as pure rules with tests written first: rules/routine.ts, rules/proposal.ts and rules/decide.ts, then wire prescriptions.save, prescriptions.lines, routine.* and health.* in createRealServices.ts. Saving a prescription must never change the routine.
 
-Write the Google Cloud setup steps for the human into docs/progress-core.md: create the project, enable the Gmail API, configure the OAuth consent screen in Testing status, add the test Gmail address as a test user, create the Web client id with the local and deployed origins, put it in VITE_GOOGLE_CLIENT_ID. Also describe how to prepare the test inbox with three synthetic report emails.
+The golden test replays the v2 sample case through the same rules and asserts every value in fixtures `expected`, including the demo prescription's proposal rows, the effect of the decision sequence in overview section 10, 3450 mg, and that nothing crosses between the two profiles.
 
-Run npm run check. Commit as "core: Gmail import" and push. Then open a pull request from feat/core into main titled "Core: data, rules, reading, server". Stop.
+Also test: every row kind and every choice; skip then reopen; dismiss then proposalFor; the same lines saved twice; stale revision; undo and undo refused; the verification gate refusing, then succeeding after correction; "not mentioned" asked only for the same prescriber; an uncertain match never merging two medicines on its own. Keep 100% branch coverage of src/core/rules and report it.
+
+Run npm run check. Update docs/progress-core.md with behaviour the mock should copy. Commit as "core: reported routine and contextual review" and push. Stop.
 ```
 
-## Phase 7: integration and deploy (after both pull requests are merged)
+## Step 7: Attention, totals, search and Ask
 
 ```
-Both feat/core and feat/ui are merged into main. Pull main and create the branch integration.
+Continue on feature/core. Build step 7 of the core spec: rules/attention.ts with stable ids, routine.ingredientTotals, rules/search.ts with undated records ordered after dated ones, and rules/ask.ts as a deterministic parser with no language model.
 
-1. Set VITE_USE_MOCK=false. Run the app and the server locally. Walk the demo path from section 13 of the overview spec. For every mismatch between what the UI expects and what the real services return, fix it inside src/core only. If the fix would need a UI or contract change, write it in docs/contract-requests-core.md and tell the human instead.
-2. Add .github/workflows/keepalive.yml as specified.
-3. Deploy main to Deployxa: read Deployxa's current documentation, configure build and start commands and the environment variables, and confirm /api/health returns 200 on the public URL. Add the deployed origin to the Google OAuth client.
-4. Run the demo path once on the deployed URL from a phone.
+Write the Ask tests as a table of at least 40 English questions with their expected interpretation, including every example in the core spec. Add a test proving that instructions written inside a document's text have no effect beyond being searchable.
 
-Update docs/progress-core.md with the public URL and anything still broken. Commit as "core: integration fixes and deploy", push integration, and open a pull request into main. Stop.
+Run npm run check. Update docs/progress-core.md. Commit as "core: attention, search and ask" and push. Stop.
+```
+
+## Step 8: Passport, snapshots and sharing
+
+```
+Continue on feature/core. Build step 8 of the core spec: the live passport using todayFor from src/contract/today.ts, snapshots that are frozen and reused when identical, sharing bound to one snapshot and one profile with a versioned payload, sharing.listUnowned for v1 links, and sharing.open accepting v1 payloads. Make server error messages caregiver-ready, with no status codes in the text.
+
+Tests: a snapshot reads exactly the same after a routine edit and after a document delete (with removedAt); snapshot reuse; two profiles with links never see each other's; a v1 payload opens; expiry, revoke and wrong key end to end against the real routes with an in-memory store.
+
+Run npm run check. Update docs/progress-core.md. Commit as "core: passport snapshots and bound sharing" and push. Stop.
+```
+
+## Step 9: Gmail v2
+
+```
+Continue on feature/core. Read the current Gmail API documentation for message parts and attachments first.
+
+Build step 9 of the core spec: one candidate per PDF attachment with alreadyImported for the given profile, importAttachment through documents.add with receivedAt kept apart from clinicalDate, import identity per profile, message and attachment, and an unassigned_import attention item on a patient mismatch.
+
+Tests with mocked fetch: two PDFs in one email imported separately; importing for one profile leaves the message offered to the other; the same file by upload and by email is a duplicate; an expired token gives a clear message; a mismatch goes to attention.
+
+Run npm run check. Update docs/progress-core.md. Commit as "core: Gmail per attachment and per profile" and push. Stop.
+```
+
+## Step 10: OCR benchmark harness
+
+```
+Continue on feature/core. Build step 10 of the core spec: extend src/core/reading/dev/ (not linked from the app) so both engines can be run on a phone over a set of synthetic packs and prescriptions, recording cold and warm time, bytes downloaded, which critical fields were right, wrong or flagged, and whether the cloud would have been offered, with a "Copy results" button producing a Markdown table.
+
+Then give the human short instructions: start the dev server with --host, open the page on two phones on the same Wi-Fi, run the set, and paste the tables into docs/progress-core.md. Do not change the engine order yourself; Tesseract.js stays first until those results are in.
+
+Run npm run check. Update docs/progress-core.md. Commit as "core: OCR benchmark harness" and push. Stop.
+```
+
+## Step 11: Server and deployment
+
+```
+Continue on feature/core. Read Deployxa's current documentation first.
+
+Build step 11 of the core spec: the page parameter on /api/extract, .github/workflows/keepalive.yml, and the human's setup checklist in docs/progress-core.md (Supabase and schema.sql, Gemini key and model, Google OAuth client in Testing status with test users and origins, Deployxa build and start commands and environment variables, and a second-device check of a share link on the public URL).
+
+Then give the human the same checklist as a numbered list, and stop for them to create the accounts. Do not put any real key in the repository.
+
+Run npm run check. Commit as "core: server updates and deployment setup" and push. Stop.
+```
+
+## Step 12: Ready for the merge checkpoint
+
+```
+Continue on feature/core. Do step 12 of the core spec: run the whole suite, recheck 100% branch coverage of src/core/rules, and record in docs/progress-core.md which of the ten acceptance tests in overview section 13 are automated in core and which need the UI.
+
+Then merge main into feature/core, run npm run check, push, and open a pull request into main titled "Core v2: records, verification, routine review, snapshots". Write a plain description of what changed and what was not tested, with no assistant attribution. Stop.
+```
+
+## Merge checkpoint (after both pull requests are merged)
+
+```
+Both feature/core and feature/ui are merged into main. Pull main and create the branch integration-v2.
+
+1. Remove the v1 side as overview section 6 describes: delete src/contract/legacy, the v1 mock (src/ui/mock/createMockServices.ts and its v1 helpers, after checking nothing in src/ui still imports them), and the v1 core (src/core/createRealServices.ts and v1-only modules), and make src/services/index.ts export only v2 (`services` built from createMockServicesV2 or createRealServicesV2). Run npm run check. Commit as "chore: remove the v1 contract and services".
+2. Set VITE_USE_MOCK=false. Run the app and the server locally. Walk the first release story in overview section 1 and all ten acceptance tests in section 13 in a real browser against the real services, at desktop and phone sizes. For every mismatch between what the UI expects and what the real services return, fix it inside src/core or server only. If the fix needs a UI or contract change, write it in docs/contract-requests-core.md and tell the human instead.
+3. Deploy main to Deployxa following the checklist in docs/progress-core.md and confirm /api/health returns 200 on the public URL. Add the deployed origin to the Google OAuth client.
+4. Walk the first release story once on the public URL from a phone, including opening a share link on a second device and revoking it.
+
+Update docs/progress-core.md with the public URL, the results of each acceptance test, and anything still broken. Commit as "core: integration fixes and deploy", push integration-v2, and open a pull request into main with a plain description and no assistant attribution. Stop.
 ```
