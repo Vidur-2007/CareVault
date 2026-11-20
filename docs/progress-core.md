@@ -574,3 +574,38 @@ Tests:
 Branch coverage of `src/core/v2/rules` and `src/core/v2/share`: **100%** (898 of 898). `npm run check`: 50 files, 791 tests, build passing. `eslint` clean.
 
 TEMPORARY, still `not built yet`: gmail (step 9).
+
+### Step 9: Gmail v2
+
+- **`src/core/v2/gmail/api.ts`:** read-only Gmail calls with the caregiver's in-memory token, using v1's token source (`core/gmail/token.ts`) unchanged.
+  - One candidate per PDF attachment, so two PDFs in one email are two rows. Images are never offered. `receivedAt` is the message's arrival time.
+  - **Attachment identity.** Gmail's own attachment id is not stable: it can change every time the same message is fetched. The `attachmentId` CareVault hands out is therefore the attachment's part id within its message (stable), falling back to Gmail's id only when a part has none. The current Gmail id is looked up at download time. The tests' fake Gmail issues a new id on every fetch to prove this.
+- **`gmail.findCandidates(profileId)`:** `alreadyImported` comes from `gmailImports` for this profile, and only while the imported record still exists.
+- **`gmail.importAttachment(profileId, messageId, attachmentId)`:**
+  - stores the original, its record (source `email`, `receivedAt` from the message, `clinicalDate` null) and the import identity `[profileId, messageId, attachmentId]` in one transaction;
+  - then reads it on the device, like any other record (no cloud without consent);
+  - a failed reading keeps the record;
+  - the same attachment again for the same profile returns the existing record;
+  - a file already uploaded is reported as a duplicate;
+  - a different patient name becomes an `unassigned_import` attention item.
+- **`documents.add`** and email imports share one storing helper, so both keep "original first, before any reading".
+- **`gmail.connect`:**
+  - a copy with no Google client id gives `not_configured` ("Gmail import is not set up on this copy.");
+  - before any connection, a call says "Connect Gmail first.";
+  - after the token expires, or Gmail refuses it, the message is "The Gmail connection has expired. Please connect again.";
+  - no message carries a status code.
+- **Every method of contract v2 is now built.** The `notBuilt` placeholder and its test are gone.
+
+Tests: `src/core/v2/gmail/gmail.test.ts`, 15 tests with mocked `fetch`:
+- two PDFs in one email;
+- import per profile, where one profile's import does not hide the message from the other;
+- the same attachment twice, and again after the record is removed;
+- upload-then-email duplicate;
+- a mismatch going to attention, until it is assigned;
+- a failed reading keeping the record;
+- an empty inbox and an empty attachment;
+- unknown profile, message or attachment, with nothing stored;
+- connect first, token expiry, a refused token, no client id, offline and a failing Gmail;
+- the token never stored.
+
+Branch coverage of `src/core/v2/rules`, `src/core/v2/share` and `src/core/v2/gmail`: **100%** (933 of 933). `npm run check`: 51 files, 805 tests, build passing. `eslint` clean.

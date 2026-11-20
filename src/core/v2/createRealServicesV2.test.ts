@@ -272,18 +272,6 @@ describe('drug reference evidence levels', () => {
   });
 });
 
-describe('methods of later steps', () => {
-  it('reject as not built yet', async () => {
-    const pending: [string, () => Promise<unknown>][] = [
-      ['gmail.findCandidates', () => services.gmail.findCandidates(IDS.ramesh)],
-    ];
-    for (const [name, call] of pending) {
-      await expect(call(), name).rejects.toBeInstanceOf(ServiceError);
-      await expect(call()).rejects.toMatchObject({ code: 'unknown', message: 'not built yet' });
-    }
-  });
-});
-
 // ---------- reading v2 through the services ----------
 
 const legacyPdf: PdfLoader = () => import('pdfjs-dist/legacy/build/pdf.mjs') as unknown as ReturnType<PdfLoader>;
