@@ -27,7 +27,7 @@ export const TESTS: readonly TestEntry[] = [
   { name: 'Echocardiogram', patterns: [/echocardiogra/, /\b2d echo\b/], kind: 'test', tags: ['cardiology'] },
 ];
 
-const SPECIALTIES: readonly [RegExp, string][] = [
+export const SPECIALTIES: readonly [RegExp, string][] = [
   [/cardiolog/, 'cardiology'],
   [/diabetolog/, 'diabetology'],
   [/endocrinolog/, 'endocrinology'],

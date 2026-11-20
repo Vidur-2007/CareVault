@@ -36,7 +36,10 @@ import { defaultReadingDepsV2, readFile, type ReadingDepsV2 } from './reading/re
 import { classify } from './rules/classify';
 import { matchPatient, readPatientName } from './rules/patient';
 import { applyDecisions, applyEvidence, buildEvidence, mergeEvidence, toExtractedLines } from './rules/verify';
+import { attentionItems } from './rules/attention';
+import { documentsText, normalizeQuestion, parseQuestion, questionsAnswer, routineAnswer, HINT } from './rules/ask';
 import { planDecisions, rebuildWith } from './rules/decide';
+import { newestFirst, searchRecords } from './rules/search';
 import { buildProposal, hasNothingToAsk, sameProposal, toPublic, type StoredProposal } from './rules/proposal';
 import {
   assertLineReviewable,
@@ -133,12 +136,7 @@ export function isIsoDate(value: string): boolean {
 }
 
 /** Newest clinical date first; undated records after dated ones, newest added first. */
-export function newestDocumentFirst(a: DocumentRecord, b: DocumentRecord): number {
-  if (a.clinicalDate && b.clinicalDate && a.clinicalDate !== b.clinicalDate) return b.clinicalDate.localeCompare(a.clinicalDate);
-  if (a.clinicalDate && !b.clinicalDate) return -1;
-  if (!a.clinicalDate && b.clinicalDate) return 1;
-  return Date.parse(b.addedAt) - Date.parse(a.addedAt) || a.id.localeCompare(b.id);
-}
+export const newestDocumentFirst = newestFirst;
 
 const STATUS_ORDER: readonly RoutineStatus[] = ['taking', 'uncertain', 'not_started', 'stopped'];
 /** Taken first, then not confirmed, not started and stopped; by name within each. */
@@ -762,8 +760,66 @@ export function createRealServicesV2(options: RealServicesV2Options = {}): CareV
       }),
     },
 
-    attention: { list: notBuilt },                                        // TEMPORARY: step 7
-    records: { search: notBuilt, ask: notBuilt },                         // TEMPORARY: step 7
+    attention: {
+      list: guarded(async (profileId) => {
+        await need(repos.profiles.get(profileId), 'profile');
+        return attentionItems({
+          documents: await repos.documents.byProfile(profileId),
+          evidence: await repos.fieldEvidence.byProfile(profileId),
+          routine: await repos.routine.byProfile(profileId),
+        });
+      }),
+    },
+
+    records: {
+      search: guarded(async (profileId, query) => {
+        await need(repos.profiles.get(profileId), 'profile');
+        return searchRecords(await repos.documents.byProfile(profileId), await repos.prescribers.byProfile(profileId), query ?? {});
+      }),
+
+      // Deterministic: fixed patterns, no model. The question and the records are only data.
+      ask: guarded(async (profileId, question) => {
+        await need(repos.profiles.get(profileId), 'profile');
+        const documents = await repos.documents.byProfile(profileId);
+        const prescribers = await repos.prescribers.byProfile(profileId);
+        const routine = await repos.routine.byProfile(profileId);
+        const lines = await repos.prescriptionLines.byDocuments(documents.map((d) => d.id));
+        const parsed = parseQuestion(typeof question === 'string' ? question : '', {
+          today: todayFor(profileId, deviceToday()),
+          prescribers,
+          facilities: documents.map((d) => d.facility).filter((f): f is string => !!f),
+          medicineNames: [...routine, ...lines].flatMap((m) => [m.productName, ...m.ingredients.map((i) => i.name)]),
+        });
+        const empty = { query: null, documents: [], questions: [], medicines: [] };
+
+        if (parsed.kind === 'not_understood') {
+          return { ...empty, understood: false, kind: 'not_understood' as const, interpretedAs: '', text: `That question is not one CareVault understands. ${HINT}` };
+        }
+        if (parsed.kind === 'questions') {
+          const answer = questionsAnswer(await nextVisit(profileId), prescribers);
+          return { ...empty, understood: true, kind: 'questions' as const, interpretedAs: 'Questions saved for the next visit', questions: answer.questions, text: answer.text };
+        }
+        if (parsed.kind === 'routine') {
+          const answer = routineAnswer(routine, parsed.medicine);
+          const interpretedAs = parsed.medicine ? `Medicines with ${parsed.medicine} recorded as taken` : 'Medicines recorded as taken';
+          return { ...empty, understood: true, kind: 'routine' as const, interpretedAs, medicines: answer.medicines, text: answer.text };
+        }
+        const medicine = parsed.medicine;
+        const onlyIds = medicine
+          ? new Set(lines.filter((l) => l.ingredients.some((i) => i.name === medicine) || normalizeQuestion(l.productName).split(' ').includes(medicine)).map((l) => l.documentId))
+          : undefined;
+        const hits = searchRecords(documents, prescribers, parsed.query, onlyIds);
+        return {
+          ...empty,
+          understood: true,
+          kind: 'documents' as const,
+          interpretedAs: parsed.interpretedAs,
+          query: parsed.query,
+          documents: hits,
+          text: documentsText(parsed, hits, prescribers),
+        };
+      }),
+    },
     visits: {                                                             // TEMPORARY: step 8
       next: notBuilt, save: notBuilt, addQuestion: notBuilt, removeQuestion: notBuilt, setSharedDocuments: notBuilt,
     },

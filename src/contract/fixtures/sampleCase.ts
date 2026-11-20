@@ -14,6 +14,7 @@ import type {
   Prescriber,
   Profile,
   ProposalRowKind,
+  RecordQuery,
   RoutineEvent,
   RoutineMedicine,
   RoutineStatus,
@@ -489,10 +490,11 @@ export const expected = {
     // Newest clinical date first; undated records after dated ones.
     documentIdsNewestFirst: [D.lipidProfile, D.raoLatest, D.ecg, D.raoPrevious, D.menon, D.hba1c],
     search: {
-      latestLipidProfile: { query: { text: 'lipid profile', sort: 'newest' as const, limit: 1 }, firstId: D.lipidProfile },
-      hba1cByTest: { query: { testName: 'HbA1c', sort: 'newest' as const }, ids: [D.hba1c] },
+      // Typed as RecordQuery so they can be passed straight to records.search.
+      latestLipidProfile: { query: { text: 'lipid profile', sort: 'newest', limit: 1 } as RecordQuery, firstId: D.lipidProfile },
+      hba1cByTest: { query: { testName: 'HbA1c', sort: 'newest' } as RecordQuery, ids: [D.hba1c] },
       cardiologyPrescriptions: {
-        query: { kinds: ['prescription' as const], prescriberId: P.rao, sort: 'newest' as const },
+        query: { kinds: ['prescription'], prescriberId: P.rao, sort: 'newest' } as RecordQuery,
         ids: [D.raoLatest, D.raoPrevious],
       },
     },

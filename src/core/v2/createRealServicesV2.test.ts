@@ -275,8 +275,6 @@ describe('drug reference evidence levels', () => {
 describe('methods of later steps', () => {
   it('reject as not built yet', async () => {
     const pending: [string, () => Promise<unknown>][] = [
-      ['attention.list', () => services.attention.list(IDS.ramesh)],
-      ['records.search', () => services.records.search(IDS.ramesh, {})],
       ['visits.next', () => services.visits.next(IDS.ramesh)],
       ['passport.live', () => services.passport.live(IDS.ramesh)],
       ['sharing.list', () => services.sharing.list(IDS.ramesh)],
