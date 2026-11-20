@@ -20,6 +20,7 @@ import {
   type Profile,
   type RoutineMedicine,
   type RoutineStatus,
+  type Question,
   type ShareLink,
   type Visit,
 } from '../../contract/types';
@@ -39,7 +40,9 @@ import { applyDecisions, applyEvidence, buildEvidence, mergeEvidence, toExtracte
 import { attentionItems } from './rules/attention';
 import { documentsText, normalizeQuestion, parseQuestion, questionsAnswer, routineAnswer, HINT } from './rules/ask';
 import { planDecisions, rebuildWith } from './rules/decide';
+import { buildPassport, planSnapshot } from './rules/passport';
 import { newestFirst, searchRecords } from './rules/search';
+import { downloadSnapshot, revokeLink, uploadSnapshot } from './share/client';
 import { buildProposal, hasNothingToAsk, sameProposal, toPublic, type StoredProposal } from './rules/proposal';
 import {
   assertLineReviewable,
@@ -67,6 +70,8 @@ export interface RealServicesV2Options {
   fetch?: typeof fetch;
   /** PBKDF2 iterations for backups. Lower only in tests. */
   backupIterations?: number;
+  /** The origin put into share links. Defaults to the page's own origin. */
+  origin?: () => string;
   /** PDF, OCR and cloud reading. Defaults to the real engines, loaded on first use. */
   reading?: ReadingDepsV2;
 }
@@ -199,7 +204,30 @@ export function createRealServicesV2(options: RealServicesV2Options = {}): CareV
 
   const isActiveLink = (link: ShareLink) => !link.revoked && Date.parse(link.expiresAt) > clock().getTime();
 
+  const origin = options.origin ?? (() => (globalThis as { location?: { origin?: string } }).location?.origin ?? '');
   const ruleCtx = () => ({ now: nowIso(), newId });
+
+  /** A share link as callers see it: the revoke token never leaves storage. */
+  const publicLink = ({ id, profileId, snapshotId, url, createdAt, expiresAt, revoked }: ShareLink): ShareLink =>
+    ({ id, profileId, snapshotId, url, createdAt, expiresAt, revoked });
+  const newestLinkFirst = (a: ShareLink, b: ShareLink) =>
+    Date.parse(b.createdAt ?? b.expiresAt) - Date.parse(a.createdAt ?? a.expiresAt) || a.id.localeCompare(b.id);
+
+  async function livePassport(profileId: ID) {
+    const profile = await need(repos.profiles.get(profileId), 'profile');
+    return buildPassport({
+      profile,
+      today: todayFor(profileId, deviceToday()),
+      prescribers: await repos.prescribers.byProfile(profileId),
+      routine: await repos.routine.byProfile(profileId),
+      events: await repos.routineEvents.byProfile(profileId),
+      health: await repos.healthEntries.byProfile(profileId),
+      documents: await repos.documents.byProfile(profileId),
+      visit: await nextVisit(profileId),
+    });
+  }
+
+  const visitOf = (id: ID) => need(repos.visits.get(id), 'visit');
   const deviceToday = (): ISODate => {
     const d = clock();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -820,11 +848,144 @@ export function createRealServicesV2(options: RealServicesV2Options = {}): CareV
         };
       }),
     },
-    visits: {                                                             // TEMPORARY: step 8
-      next: notBuilt, save: notBuilt, addQuestion: notBuilt, removeQuestion: notBuilt, setSharedDocuments: notBuilt,
+    visits: {
+      next: guarded(async (profileId) => {
+        await need(repos.profiles.get(profileId), 'profile');
+        return nextVisit(profileId);
+      }),
+
+      save: guarded(async (input) =>
+        repos.transaction(async () => {
+          await need(repos.profiles.get(input.profileId), 'profile');
+          await prescriberOf(input.profileId, input.prescriberId);
+          if (typeof input.at !== 'string' || Number.isNaN(Date.parse(input.at))) {
+            throw new ServiceError('unknown', 'Please enter the date and time of the visit.');
+          }
+          if (input.id !== undefined) {
+            const existing = await repos.visits.get(input.id);
+            if (existing && existing.profileId !== input.profileId) throw notFound('visit');
+          }
+          const known = new Set((await repos.documents.byProfile(input.profileId)).map((d) => d.id));
+          const seen = new Set<string>();
+          const questions: Question[] = [];
+          for (const q of input.questions ?? []) {
+            const text = q.text.trim().replace(/\s+/g, ' ');
+            if (!text || seen.has(text.toLowerCase())) continue;
+            seen.add(text.toLowerCase());
+            questions.push({ ...q, id: q.id || newId(), text });
+          }
+          return repos.visits.put({
+            id: input.id ?? newId(),
+            profileId: input.profileId,
+            prescriberId: input.prescriberId,
+            at: input.at,
+            questions,
+            sharedDocumentIds: [...new Set(input.sharedDocumentIds ?? [])].filter((id) => known.has(id)),
+          });
+        }),
+      ),
+
+      addQuestion: guarded(async (visitId, text, link) =>
+        repos.transaction(async () => {
+          const visit = await visitOf(visitId);
+          const clean = (text ?? '').trim().replace(/\s+/g, ' ');
+          if (!clean) throw new ServiceError('unknown', 'Please write the question.');
+          if (link?.medicineId) {
+            const entry = await repos.routine.get(link.medicineId);
+            if (!entry || entry.profileId !== visit.profileId) throw notFound('medicine');
+          }
+          if (link?.documentId) {
+            const doc = await repos.documents.get(link.documentId);
+            if (!doc || doc.profileId !== visit.profileId) throw notFound('record');
+          }
+          // The same question twice is kept once.
+          if (visit.questions.some((q) => q.text.toLowerCase() === clean.toLowerCase())) return visit;
+          const question: Question = { id: newId(), text: clean, source: 'manual', medicineId: link?.medicineId ?? null, documentId: link?.documentId ?? null };
+          return repos.visits.put({ ...visit, questions: [...visit.questions, question] });
+        }),
+      ),
+
+      removeQuestion: guarded(async (visitId, questionId) =>
+        repos.transaction(async () => {
+          const visit = await visitOf(visitId);
+          if (!visit.questions.some((q) => q.id === questionId)) return visit;
+          return repos.visits.put({ ...visit, questions: visit.questions.filter((q) => q.id !== questionId) });
+        }),
+      ),
+
+      setSharedDocuments: guarded(async (visitId, documentIds) =>
+        repos.transaction(async () => {
+          const visit = await visitOf(visitId);
+          const known = new Set((await repos.documents.byProfile(visit.profileId)).map((d) => d.id));
+          const unknown = documentIds.filter((id) => !known.has(id));
+          if (unknown.length > 0) throw notFound('record');
+          return repos.visits.put({ ...visit, sharedDocumentIds: [...new Set(documentIds)] });
+        }),
+      ),
     },
-    passport: { live: notBuilt, snapshot: notBuilt, snapshots: notBuilt, getSnapshot: notBuilt },  // TEMPORARY: step 8
-    sharing: { create: notBuilt, list: notBuilt, listUnowned: notBuilt, revoke: notBuilt, open: notBuilt },  // TEMPORARY: step 8
+
+    passport: {
+      live: guarded((profileId) => livePassport(profileId)),
+
+      snapshot: guarded(async (profileId, reason) =>
+        repos.transaction(async () => {
+          if (!['manual', 'print', 'share'].includes(reason)) throw new ServiceError('unknown', 'Unknown reason for the snapshot.');
+          const live = await livePassport(profileId);
+          const [latest] = await repos.snapshots.byProfile(profileId);
+          const { snapshot, created } = planSnapshot(live, latest ?? null, reason, ruleCtx());
+          if (created) await repos.snapshots.put(snapshot);
+          return snapshot;
+        }),
+      ),
+
+      snapshots: guarded(async (profileId) => {
+        await need(repos.profiles.get(profileId), 'profile');
+        return repos.snapshots.byProfile(profileId);
+      }),
+
+      getSnapshot: guarded((id) => need(repos.snapshots.get(id), 'passport')),
+    },
+
+    sharing: {
+      create: guarded(async (snapshotId, hours) => {
+        const snapshot = await need(repos.snapshots.get(snapshotId), 'passport');
+        // Between one hour and seven days. The server applies the same upper limit.
+        if (!(typeof hours === 'number' && Number.isFinite(hours) && hours >= 1 && hours <= 24 * 7)) {
+          throw new ServiceError('unknown', 'A link can last from 1 hour to 7 days.');
+        }
+        const expiresAt = new Date(clock().getTime() + hours * 3_600_000).toISOString();
+        // Encrypting and uploading happen before the transaction.
+        const share = await uploadSnapshot(snapshot, expiresAt, fetcher);
+        const link: ShareLink = {
+          id: share.id,
+          profileId: snapshot.profileId,
+          snapshotId: snapshot.id,
+          url: `${origin()}/share/${share.id}#${share.key}`,
+          createdAt: nowIso(),
+          expiresAt: share.expiresAt,
+          revoked: false,
+        };
+        await repos.shares.put({ ...link, revokeToken: share.revokeToken });
+        return link;
+      }),
+
+      list: guarded(async (profileId) => {
+        await need(repos.profiles.get(profileId), 'profile');
+        return (await repos.shares.byProfile(profileId)).map(publicLink).sort(newestLinkFirst);
+      }),
+
+      listUnowned: guarded(async () => (await repos.shares.unowned()).map(publicLink).sort(newestLinkFirst)),
+
+      revoke: guarded(async (id) => {
+        const share = await need(repos.shares.get(id), 'share link');
+        if (share.revoked) return;
+        await revokeLink(id, share.revokeToken, fetcher);
+        await repos.shares.put({ ...share, revoked: true });
+      }),
+
+      open: guarded((id, key) => downloadSnapshot(id, key, fetcher)),
+    },
+
     gmail: { connect: notBuilt, findCandidates: notBuilt, importAttachment: notBuilt },  // TEMPORARY: step 9
 
     backup: {

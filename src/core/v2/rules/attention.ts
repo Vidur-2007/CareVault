@@ -20,6 +20,11 @@ export function duplicateIngredientGroups(routine: readonly RoutineMedicine[]) {
   return duplicateGroups(asLegacy).map((g) => ({ ingredient: g.ingredient, medicines: g.medicines.map((m) => byId.get(m.id)!) }));
 }
 
+/** 'Paracetamol in Dolo 650 and Crocin Advance 500'. */
+export function duplicateTitle(group: { ingredient: string; medicines: readonly RoutineMedicine[] }): string {
+  return `${capitalize(group.ingredient)} in ${group.medicines.map((m) => m.productName).join(' and ')}`;
+}
+
 export function attentionItems(input: {
   documents: readonly DocumentRecord[];
   evidence: readonly FieldEvidence[];
@@ -73,7 +78,7 @@ export function attentionItems(input: {
     items.push({
       id: `possible_duplicate_ingredient:${group.ingredient}:${[...ids].sort().join('+')}`,
       kind: 'possible_duplicate_ingredient',
-      title: `${capitalize(group.ingredient)} in ${group.medicines.map((m) => m.productName).join(' and ')}`,
+      title: duplicateTitle(group),
       body: DUPLICATE_WORDING,
       documentId: null,
       medicineIds: ids,

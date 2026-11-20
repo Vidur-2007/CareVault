@@ -533,3 +533,44 @@ Branch coverage of `src/core/v2/rules`: **100%** (774 of 774). `npm run check`: 
 Not covered by search: the full text of a document. `DocumentRecord` carries no text and the contract limits `text` to the fields above, so words that appear only in the body of a scan are not searchable.
 
 TEMPORARY, still `not built yet`: visits, passport and sharing (step 8); gmail (step 9).
+
+### Step 8: passport live, snapshots, sharing (and visits)
+
+- **`src/core/v2/rules/passport.ts`:** the live passport of overview 8.1 and 9.6, on the profile's `todayFor` date.
+  - Current medicines are `taking` entries only, never legacy-pending ones. They are ordered by the next visit's doctor, then other doctors by name, then none, and by name within each group.
+  - Unconfirmed: `uncertain` and legacy-pending entries, each with a reason.
+  - Allergies are listed, "none known" or "not recorded". Conditions, procedures, the next visit, its selected records (with hashes) and its questions are included.
+  - Flags: each possible duplicate with the section 9.5 wording.
+  - Recent changes come from routine events of the last 90 days, by the date they were recorded, newest first. Undone changes are left out, a replacement is told once ("Amlodipine 5 mg replaced by Amlodipine 10 mg"), and confirmations are not changes.
+  - Device times (UTC) are read in the device's time zone, so a change made after midnight in India shows on the right day.
+- **Snapshots:** `passport.snapshot` freezes the live passport. When it is identical to the latest snapshot, that snapshot is returned and nothing is stored. Revisions are numbered per profile, `snapshots` lists newest first, and opening the live passport never creates one.
+- **Sharing**, in `src/core/v2/share/client.ts` with the v1 AES-GCM crypto:
+  - `create` encrypts `{ v: 2, snapshot }` and stores the link with its profile, its snapshot and `createdAt`. A lifetime outside 1 hour to 7 days is refused, not clamped.
+  - `list` returns only that profile's links, newest first. `listUnowned` returns the v1 links, which are never shown for a profile.
+  - `revoke` works as in v1.
+  - `open` validates the payload. A v1 passport is wrapped as a snapshot (revision 0, no profile, allergies "not recorded"), and anything else is refused.
+  - A 503 from the server becomes `not_configured`. No message carries a status code. The server is unchanged.
+- **Visits:**
+  - `next` is the first visit on or after the profile's today.
+  - `save` checks the doctor and the time, refuses another profile's visit id, tidies and de-duplicates questions, and drops records that are not this profile's.
+  - `addQuestion` keeps a question once and checks that a linked medicine or record belongs to the profile.
+  - `removeQuestion`.
+  - `setSharedDocuments` refuses another profile's record with `not_found`.
+
+Tests:
+- `src/core/v2/passport.test.ts`, 15 tests: the sample passports, recent changes, ordering, snapshot reuse and revisions, immutability after routine edits and a document deletion (only `removedAt` changes), and every visit method.
+- `server/e2e-v2.test.ts`, 10 tests against the real server routes with an in-memory store:
+  - the doctor opens exactly the shared snapshot, and the server only holds ciphertext;
+  - a later routine change does not alter what the link shows;
+  - expiry, revoke and a wrong key;
+  - lifetimes;
+  - two profiles that never see each other's links, and v1 links listed only as unowned;
+  - a v1 link opening as a snapshot;
+  - a bad payload;
+  - a server with sharing off, and offline.
+- `src/core/v2/rules/passport.rules.test.ts` and `src/core/v2/share/client.test.ts`: the edge paths and every server status.
+- The v2 tests pass in the local time zone, `TZ=Asia/Kolkata` and `TZ=UTC`.
+
+Branch coverage of `src/core/v2/rules` and `src/core/v2/share`: **100%** (900 of 900). `npm run check`: 50 files, 791 tests, build passing. `eslint` clean.
+
+TEMPORARY, still `not built yet`: gmail (step 9).
