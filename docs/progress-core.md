@@ -609,3 +609,87 @@ Tests: `src/core/v2/gmail/gmail.test.ts`, 15 tests with mocked `fetch`:
 - the token never stored.
 
 Branch coverage of `src/core/v2/rules`, `src/core/v2/share` and `src/core/v2/gmail`: **100%** (933 of 933). `npm run check`: 51 files, 805 tests, build passing. `eslint` clean.
+
+### Step 10: OCR benchmark harness
+
+The harness is a dev page (`src/core/reading/dev/index.html`). It is not linked from the app and not in the production build; the build was checked for it.
+- **The set:** eight synthetic images in `src/core/reading/dev/benchmark/`, rendered with headless Chrome from `benchmark-html/` by `render-benchmark.sh`. Each carries "Synthetic benchmark image made for the CareVault OCR test".
+  - Five packs: two clean, one stylised script brand (white on red), one tilted with glare across the strength line, one tilted and blurred.
+  - Three prescriptions: a clean printed one with old-style numerals, the demo prescription with the smudged Aspirin strength, and one in a handwriting-style font.
+  - What each one says is in `benchmarkSet.ts`.
+- **The page:** it runs Tesseract.js, then PaddleOCR.js, over the set (or your own photos, which are timed only). For every image and engine it records:
+  - cold time (a new engine; the first image also downloads the model) and warm time (the same engine again);
+  - bytes downloaded and stored (see the limits below);
+  - OCR confidence;
+  - whether the cloud would have been offered (`needsCloud`, the app's own rule);
+  - each critical field (name, ingredient, strength, unit, frequency): right, right but asked to check, wrong but flagged, **wrong and not flagged**, or not read.
+
+  The reading goes through the real v2 parser and field-evidence rules. "Copy results" copies a Markdown table: per image, per engine totals, and a list of every wrong value that was not flagged. On a phone that refuses the clipboard over plain http, the table appears in a box to copy by hand. `?autorun&device=<name>` starts the set from a link.
+- **Scoring** is in `src/core/v2/reading/benchmark.ts`, tested in `benchmark.test.ts` (18 tests). The answer key is checked against the parser: the exact printed text of every image is scored, and nothing may be wrong except the known limits listed in the test.
+- **Engine order unchanged:** Tesseract.js stays first until phone results are in.
+
+**Parser bug found by the benchmark, fixed:** on a pack, the ingredient name ran back across the line break into the brand line. "Crocin" above "Paracetamol Tablets IP 500 mg" read as one name, "Crocin Paracetamol", so nothing was found, even from perfect text. Dolo worked only because its brand is in the drug reference and its "650" stopped the run. Names now stop at a line break, with a regression test in `reading.test.ts`.
+
+**Known parser limit, not fixed:** a brand printed on two lines ("Crocin" / "ADVANCE") gives only the first line as the product name. The ingredient and strength are right. The benchmark reports this as "wrong, not flagged" on purpose.
+
+**Limits of the byte counts:** "Downloaded" sees only requests the page itself makes; a model fetched inside a worker, or from a server that hides sizes, is not counted. "Stored" is the growth of the site's storage, which catches models the engines cache. For an exact figure, use the Network panel through remote debugging (chrome://inspect from a computer).
+
+#### How to run it on a phone
+
+1. On the computer, on the same Wi-Fi as the phones: `npm run dev -- --host`. Vite prints a Network address, such as `http://192.168.1.20:5173/`.
+2. On each phone, open `http://<that address>/src/core/reading/dev/index.html`, type the phone's name, and press **Run the benchmark set**. Keep the screen on; the first run downloads the models and can take several minutes.
+3. Press **Copy results** and paste the table below, under "Benchmark results". Do this on two phones, ideally one mid-range Android.
+4. Optionally, add a few real pack photos with "your own photos" (timed and cloud-checked only).
+
+#### Smoke run on this Mac (not a phone)
+
+To prove the harness works end to end before anyone takes it to a phone, the set was run once in headless Chrome on this Mac, driven over the Chrome debugging protocol with `?autorun`. **These are desktop numbers: they say nothing about phone speed.** What they do show:
+
+- **The design's "always check a strength from a photo" rule earned its place.** Tesseract read the ink blot in the demo prescription as a clean "78 mg", with 0.90 confidence and no "?". Only that rule stopped "Aspirin 78 mg" reaching the routine unchecked. PaddleOCR read the blot as "7•mg", which the parser flags as unreadable.
+- **Tesseract drops large coloured brand lines.** On the Dolo and Telma packs it never read the brand, so the product name came from the composition line ("Paracetamol Tablets IP 650 mg"). The ingredient and strength were right. PaddleOCR read both brands.
+- **On the blurred, tilted pack, Tesseract read nothing usable** ("Pantoprazoye … Pao mo"), and the app would offer the cloud. PaddleOCR read it fully.
+- **PaddleOCR misread old-style numerals** ("Telmisartan 8o mg", "51-0-0"), losing that line's strength and one frequency; they were not read, not misread. It also failed its very first load ("Failed to fetch") before downloading 28.2 MB on the next attempt; the phone runs should watch for this.
+- **Cold start:** Tesseract downloaded about 3.6 MB (stored) and started in under a second here; PaddleOCR downloaded 28.2 MB.
+- Across both engines, the only "wrong and not flagged" values are product names. No strength, unit, frequency or ingredient was wrong without a flag.
+
+Possible parser improvements this suggests, **not made**, to avoid tuning the parser to its own synthetic test set before real phone photos are in:
+- read a letter "o" between a digit and a unit as zero ("8o mg");
+- prefer a large brand line over a composition line as the product name.
+
+##### Smoke run: MacBook headless Chrome (smoke run, not a phone), 2026-11-20
+
+User agent: `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36`
+
+| Image | Engine | Cold (s) | Warm (s) | Downloaded | Stored | Confidence | Right | Right, asked | Wrong, flagged | Wrong, NOT flagged | Not read | Cloud offered |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| pack-dolo-650.png | tesseract | 0.9 | 0.1 | 127 KB | 3.6 MB | 0.93 | 1 | 2 | 0 | 1 | 0 | no |
+| pack-telma-40.png | tesseract | 0.2 | 0.1 | 0 B | 0 B | 0.92 | 1 | 2 | 0 | 1 | 0 | no |
+| pack-crocin-advance.png | tesseract | 0.2 | 0.1 | 0 B | 0 B | 0.89 | 1 | 2 | 0 | 1 | 0 | no |
+| pack-glycomet-glare.png | tesseract | 0.1 | 0.1 | 0 B | 0 B | 0.91 | 2 | 2 | 0 | 0 | 0 | no |
+| pack-pan-40-blurred.png | tesseract | 0.2 | 0.1 | 0 B | 0 B | 0.76 | 0 | 0 | 0 | 0 | 4 | yes |
+| rx-printed-clean.png | tesseract | 0.3 | 0.2 | 0 B | 0 B | 0.91 | 6 | 9 | 0 | 0 | 0 | no |
+| rx-demo-smudged.png | tesseract | 0.3 | 0.2 | 0 B | 0 B | 0.90 | 7 | 12 | 1 | 0 | 0 | no |
+| rx-handwriting-style.png | tesseract | 0.2 | 0.1 | 0 B | 0 B | 0.92 | 2 | 3 | 0 | 0 | 0 | no |
+| pack-dolo-650.png | paddle | – | – | – | – | – | – | – | – | – | – | failed: Failed to fetch |
+| pack-telma-40.png | paddle | 5.8 | 0.2 | 28.2 MB | 0 B | 0.99 | 2 | 2 | 0 | 0 | 0 | no |
+| pack-crocin-advance.png | paddle | 0.3 | 0.1 | 0 B | 0 B | 0.95 | 1 | 2 | 0 | 1 | 0 | no |
+| pack-glycomet-glare.png | paddle | 0.2 | 0.1 | 0 B | 0 B | 0.98 | 2 | 2 | 0 | 0 | 0 | no |
+| pack-pan-40-blurred.png | paddle | 0.2 | 0.1 | 0 B | 0 B | 0.99 | 1 | 3 | 0 | 0 | 0 | no |
+| rx-printed-clean.png | paddle | 0.3 | 0.2 | 0 B | 0 B | 0.98 | 6 | 9 | 0 | 0 | 0 | no |
+| rx-demo-smudged.png | paddle | 0.3 | 0.2 | 0 B | 0 B | 0.98 | 7 | 7 | 2 | 0 | 4 | no |
+| rx-handwriting-style.png | paddle | 0.3 | 0.2 | 0 B | 0 B | 0.98 | 2 | 3 | 0 | 0 | 0 | no |
+
+| Engine | Images | Mean warm (s) | Right | Right, asked | Wrong, flagged | Wrong, NOT flagged | Not read | Cloud offered |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| tesseract | 8 | 0.1 | 20 | 32 | 1 | 3 | 4 | 1 |
+| paddle | 7 | 0.2 | 21 | 28 | 2 | 1 | 4 | 0 |
+
+Wrong and not flagged:
+- pack-dolo-650.png, tesseract: Dolo 650, medicine_name read as "Paracetamol Tablets IP 650 mg", printed "Dolo 650"
+- pack-telma-40.png, tesseract: Telma 40, medicine_name read as "Telmisartan Tablets IP 40 mg", printed "Telma 40"
+- pack-crocin-advance.png, tesseract: Crocin Advance, medicine_name read as "Advance", printed "Crocin Advance"
+- pack-crocin-advance.png, paddle: Crocin Advance, medicine_name read as "Crocin", printed "Crocin Advance"
+
+#### Benchmark results (phones)
+
+(Paste the phone tables here.)

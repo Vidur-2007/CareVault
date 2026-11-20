@@ -36,6 +36,13 @@ Date: 12 Nov 2026      Referred by: Dr. Kavita Rao
 Total cholesterol 186 mg/dL`;
 
 describe('parse v2', () => {
+  it('a pack whose brand is not in the reference: the brand line above is not part of the ingredient (found by the OCR benchmark)', () => {
+    const d = parsePages([{ page: 1, text: 'Crocin\nADVANCE\nParacetamol Tablets IP 500 mg\n20 Tablets' }]);
+    expect(d.lines).toHaveLength(1);
+    expect(d.lines[0].ingredients).toMatchObject([{ name: 'paracetamol', nameRaw: 'Paracetamol', strength: 500, unit: 'mg', fromReference: false }]);
+    expect(d.lines[0].productName).toBe('Crocin');
+  });
+
   it('a pack label with a composition line', () => {
     const d = parsePages([{ page: 1, text: PACK }]);
     expect(d).toMatchObject({ kind: 'other', clinicalDate: null, dateUnclear: false, prescriberName: null });

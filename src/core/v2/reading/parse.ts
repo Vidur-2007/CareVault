@@ -102,9 +102,10 @@ const NAME_STOP = new Set([
 const FORM_WORDS = new Set(['tablet', 'tablets', 'capsule', 'capsules', 'suspension', 'syrup']);
 const PHARMACOPOEIA = /^(?:i\.?p\.?|b\.?p\.?|u\.?s\.?p\.?|ph\.?|eur\.?)$/i;
 
-/** The words just before a strength, back to the nearest punctuation or filler word. */
+/** The words just before a strength, back to the nearest punctuation, filler word or line break. */
 function nameBefore(text: string): string {
-  const parts = text.split(/[:;,+()]|(?:\d[\d?]*(?:\.\d+)?|\?+)\s?(?:mcg|mg|gm|g|ml|iu)\b/i);
+  // A name never runs across lines: on a pack, the brand line above is not part of it.
+  const parts = text.split(/[:;,+()\n]|(?:\d[\d?]*(?:\.\d+)?|\?+)\s?(?:mcg|mg|gm|g|ml|iu)\b/i);
   const segment = parts[parts.length - 1];
   const words = segment.trim().split(/\s+/).filter(Boolean);
   const name: string[] = [];
