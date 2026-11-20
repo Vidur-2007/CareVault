@@ -626,6 +626,7 @@ export interface CareVaultServices {
   routine: {
     list(profileId: T.ID): Promise<T.RoutineMedicine[]>;
     get(id: T.ID): Promise<T.RoutineMedicine>;
+    // Both histories are newest first (latest event at index 0).
     history(medicineId: T.ID): Promise<T.RoutineEvent[]>;
     profileHistory(profileId: T.ID): Promise<T.RoutineEvent[]>;
     revision(profileId: T.ID): Promise<number>;
@@ -921,7 +922,7 @@ Laptop A produces this file. The smudge must make the parser flag the strength.
 - Search "latest lipid profile" → Lipid profile, 2026-11-12, first result. Search for test "HbA1c" sorted newest → the HbA1c report, listed after dated records because it is undated.
 - Saving the demo prescription with Dr. Rao gives these proposal rows:
   - `changed` Telmisartan 40 → 80 mg, asked;
-  - `new` Aspirin, asked, `blockedByVerification: true` until the strength is verified;
+  - `new` Aspirin, asked, named `Aspirin 7? mg` as printed and `blockedByVerification: true` until the strength is verified; after the user corrects it to 75 mg, `Aspirin 75 mg` and not blocked (fixtures `proposalRows` and `proposalRowsAfterCheck`);
   - `same` Amlodipine 10 mg and Rosuvastatin 10 mg, not asked;
   - `not_mentioned` Atorvastatin 10 mg, asked (same prescriber);
   - `passiveNotMentionedCount: 3` (Metformin, Dolo 650, Crocin Advance 500).

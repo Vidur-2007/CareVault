@@ -49,10 +49,6 @@ afterEach(async () => {
   await db.delete();
 });
 
-/** The rows as the fixture states them. The line name is compared separately: it changes when the strength is checked. */
-const shape = (rows: readonly ProposalRow[]) =>
-  rows.map((r) => ({ kind: r.kind, medicineId: r.kind === 'new' ? null : r.medicine?.id ?? null, asked: r.asked }));
-
 function rowOf(proposal: RoutineProposal, decision: (typeof demo.decisions)[number]): ProposalRow {
   const row = 'medicineId' in decision
     ? proposal.rows.find((r) => r.line === null && r.medicine?.id === decision.medicineId)
@@ -85,13 +81,22 @@ describe('golden: the sample case, v2', () => {
     expect(new Map((await services.routine.list(IDS.ramesh)).map((m) => [m.id, m]))).toEqual(before);
 
     const proposal = saved.proposal!;
-    expect(shape(proposal.rows)).toEqual(demo.proposalRows.map((r) => ({ kind: r.kind, medicineId: r.medicineId, asked: r.asked })));
+    const rowsAsFixture = (p: RoutineProposal) =>
+      p.rows.map((r) => ({ kind: r.kind, lineProductName: r.line?.productName ?? null, medicineId: r.kind === 'new' ? null : r.medicine?.id ?? null, asked: r.asked, blockedByVerification: r.blockedByVerification }));
+    // Before the check: Aspirin exactly as printed, and blocked.
+    expect(rowsAsFixture(proposal)).toEqual(demo.proposalRows);
     expect(proposal.passiveNotMentionedCount).toBe(demo.passiveNotMentionedCount);
-    // Before the check, the Aspirin line is exactly as printed, and blocked.
     const aspirin = proposal.rows.find((r) => r.kind === 'new')!;
-    expect(aspirin.line!.productName).toBe(`Aspirin ${demo.aspirinStrengthAsRead}`);
-    expect(proposal.rows.map((r) => r.blockedByVerification)).toEqual(demo.proposalRows.map((r) => r.blockedByVerification));
-    expect(await codeOf(services.routine.decide(proposal.id, [{ rowId: aspirin.id, choice: 'started' }], proposal.routineRevision))).toBe('verification_required');
+    expect(aspirin.line).toMatchObject({ productName: `Aspirin ${demo.aspirinStrengthAsRead}`, verified: false });
+    // The unchecked value can never reach the routine.
+    const refused = await services.routine.decide(proposal.id, [{ rowId: aspirin.id, choice: 'started' }], proposal.routineRevision).catch((e: ServiceError) => e);
+    expect(refused).toMatchObject({ code: 'verification_required' });
+    expect(new Map((await services.routine.list(IDS.ramesh)).map((m) => [m.id, m]))).toEqual(before);
+    expect((await services.routine.profileHistory(IDS.ramesh)).length).toBe(eventsBefore);
+    expect((await services.routine.list(IDS.ramesh)).some((m) => m.productName.startsWith('Aspirin'))).toBe(false);
+    // A batch that includes the blocked row is refused as a whole: Telmisartan is not changed either.
+    expect(await codeOf(services.routine.decide(proposal.id, [{ rowId: aspirin.id, choice: 'started' }, { rowId: proposal.rows[0].id, choice: 'started_new' }], proposal.routineRevision))).toBe('verification_required');
+    expect((await services.routine.get(IDS.medicines.telmisartan40)).status).toBe('taking');
 
     // 3. Check the value: the strength is corrected to 75 mg.
     const strength = (await services.documents.fields(record.id)).find((f) => f.field === 'strength' && f.lineIndex === aspirin.line!.lineIndex)!;
@@ -99,9 +104,7 @@ describe('golden: the sample case, v2', () => {
     await services.documents.reviewFields(record.id, [{ evidenceId: strength.id, action: 'correct', value: '75' }]);
     const checked = (await services.routine.proposalFor(record.id))!;
     expect(checked.id).toBe(proposal.id);
-    expect(checked.rows.map((r) => [r.kind, r.line?.productName ?? null, r.medicine?.id ?? null, r.asked, r.blockedByVerification])).toEqual(
-      demo.proposalRows.map((r) => [r.kind, r.lineProductName, r.medicineId, r.asked, false]),
-    );
+    expect(rowsAsFixture(checked)).toEqual(demo.proposalRowsAfterCheck);
     const lines = await services.prescriptions.lines(record.id);
     expect(lines.map(({ lineIndex, productName, ingredients, form, dosesPerDay, instruction }) => ({ lineIndex, productName, ingredients, form, dosesPerDay, instruction })))
       .toEqual(demo.verifiedLines.map(({ lineIndex, productName, ingredients, form, dosesPerDay, instruction }) => ({ lineIndex, productName, ingredients, form, dosesPerDay, instruction })));

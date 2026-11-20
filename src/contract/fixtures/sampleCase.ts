@@ -442,7 +442,7 @@ interface ExpectedRow {
   /** The routine entry the row is about, or null for new. */
   medicineId: ID | null;
   asked: boolean;
-  /** Before the Aspirin strength has been checked. */
+  /** True while the line has a critical field that is not checked yet. */
   blockedByVerification: boolean;
 }
 
@@ -511,9 +511,18 @@ export const expected = {
     aspirinStrengthAsRead: '7? mg',
     verifiedLines: demoVerifiedLines,
     // Rows in core order: changed, new, not_mentioned, uncertain_match, same.
+    /** Right after saving, before the Aspirin strength is checked: Aspirin reads as printed and is blocked. */
     proposalRows: [
       { kind: 'changed', lineProductName: 'Telmisartan 80 mg', medicineId: M.telmisartan40, asked: true, blockedByVerification: false },
-      { kind: 'new', lineProductName: 'Aspirin 75 mg', medicineId: null, asked: true, blockedByVerification: true },
+      { kind: 'new', lineProductName: 'Aspirin 7? mg', medicineId: null, asked: true, blockedByVerification: true },
+      { kind: 'not_mentioned', lineProductName: null, medicineId: M.atorvastatin10, asked: true, blockedByVerification: false },
+      { kind: 'same', lineProductName: 'Amlodipine 10 mg', medicineId: M.amlodipine10, asked: false, blockedByVerification: false },
+      { kind: 'same', lineProductName: 'Rosuvastatin 10 mg', medicineId: M.rosuvastatin10, asked: false, blockedByVerification: false },
+    ] satisfies ExpectedRow[],
+    /** After the user corrects the Aspirin strength to 75 mg: the only row that changes is Aspirin's. */
+    proposalRowsAfterCheck: [
+      { kind: 'changed', lineProductName: 'Telmisartan 80 mg', medicineId: M.telmisartan40, asked: true, blockedByVerification: false },
+      { kind: 'new', lineProductName: 'Aspirin 75 mg', medicineId: null, asked: true, blockedByVerification: false },
       { kind: 'not_mentioned', lineProductName: null, medicineId: M.atorvastatin10, asked: true, blockedByVerification: false },
       { kind: 'same', lineProductName: 'Amlodipine 10 mg', medicineId: M.amlodipine10, asked: false, blockedByVerification: false },
       { kind: 'same', lineProductName: 'Rosuvastatin 10 mg', medicineId: M.rosuvastatin10, asked: false, blockedByVerification: false },

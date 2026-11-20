@@ -48,6 +48,7 @@ export interface CareVaultServices {
   routine: {
     list(profileId: T.ID): Promise<T.RoutineMedicine[]>;
     get(id: T.ID): Promise<T.RoutineMedicine>;
+    // Both histories are newest first (latest event at index 0).
     history(medicineId: T.ID): Promise<T.RoutineEvent[]>;
     profileHistory(profileId: T.ID): Promise<T.RoutineEvent[]>;
     revision(profileId: T.ID): Promise<number>;

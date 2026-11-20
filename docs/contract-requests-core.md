@@ -23,7 +23,7 @@ Behaviour the core would implement: trims both fields, rejects an empty name, an
 
 Request 1 is resolved in contract v2: `profiles.addPrescriber(profileId, { name, specialty })` is part of `docs/specs/00-overview.spec.md`, section 8.2. New requests for v2 go below this line.
 
-## 2. The demo Aspirin row's name before the check (open, raised in core step 6)
+## 2. The demo Aspirin row's name before the check (resolved before core step 7)
 
 **Problem.** In `src/contract/fixtures/sampleCase.ts`, `expected.demoPrescription.proposalRows` lists the Aspirin row as `lineProductName: 'Aspirin 75 mg'` together with `blockedByVerification: true`. The two cannot hold at once. While the row is blocked, the strength has not been checked, so the line still reads `Aspirin 7? mg` (the same fixture's `aspirinStrengthAsRead`). Once it is corrected to 75 mg, the line is `Aspirin 75 mg` and the row is no longer blocked.
 
@@ -34,3 +34,10 @@ Request 1 is resolved in contract v2: `profiles.addPrescriber(profileId, { name,
 - add `lineProductNameBeforeCheck: 'Aspirin 7? mg'` to the Aspirin row.
 
 **Until it is agreed:** nothing in the frozen files was changed. A mock that returns `Aspirin 75 mg` while blocked shows a value the user has not confirmed yet. The UI should show the line as read until the check is done.
+
+**Resolution.** Agreed and applied, before laptop B started v2, so no coordination was needed:
+- `proposalRows` is now the review right after saving: Aspirin is `Aspirin 7? mg` and blocked;
+- the new `proposalRowsAfterCheck` is the review after the strength is corrected to 75 mg: Aspirin is `Aspirin 75 mg` and not blocked;
+- the golden test compares every field of every row in both states. It also checks that the blocked line cannot reach the routine: `started` is refused, a batch that includes it is refused as a whole, and no event is written.
+
+**Convention recorded at the same time:** `routine.history` and `routine.profileHistory` return events newest first. This is noted in `src/contract/services.ts`, overview 8.2 and UI spec 7, so the mock on laptop B follows it.

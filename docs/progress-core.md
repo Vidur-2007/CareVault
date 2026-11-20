@@ -483,3 +483,12 @@ Branch coverage of `src/core/v2/rules`: **100%** (509 of 509). `npm run check`: 
 Contract request 2 is filed: the fixture names the blocked Aspirin row `Aspirin 75 mg`, which cannot be true before the check.
 
 TEMPORARY, still `not built yet`: attention and records (step 7); visits, passport and sharing (step 8); gmail (step 9).
+
+### Before step 7: contract request 2 resolved
+
+- **Fixtures:** `expected.demoPrescription.proposalRows` is now the state right after saving, with Aspirin as `Aspirin 7? mg` and blocked. The new `proposalRowsAfterCheck` is the state after the correction to 75 mg, with Aspirin as `Aspirin 75 mg` and not blocked. Overview section 10 says the same.
+- **Tests:**
+  - the golden test compares every field of every row in both states;
+  - it shows the blocked line cannot reach the routine: `started` is refused, a batch that includes it is refused as a whole (Telmisartan stays unchanged), and no event or Aspirin entry is written;
+  - a fixture test checks the two states differ only in the Aspirin row.
+- **Convention:** `routine.history` and `routine.profileHistory` are newest first. This is noted in `src/contract/services.ts`, overview 8.2 and UI spec 7.

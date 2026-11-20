@@ -135,6 +135,20 @@ describe('sample case v2: expected values agree with the rows', () => {
     expect(demo.verifiedLines.map((l) => l.productName)).toEqual(['Amlodipine 10 mg', 'Telmisartan 80 mg', 'Rosuvastatin 10 mg', 'Aspirin 75 mg']);
     expect(demo.clinicalDate < SAMPLE_TODAY).toBe(true);
   });
+
+  it('the demo prescription: Aspirin reads as printed and is blocked until checked, then reads 75 mg', () => {
+    const demo = expected.demoPrescription;
+    const aspirin = (rows: readonly { kind: string; lineProductName: string | null; blockedByVerification: boolean }[]) => rows.find((r) => r.kind === 'new')!;
+    expect(aspirin(demo.proposalRows)).toMatchObject({ lineProductName: `Aspirin ${demo.aspirinStrengthAsRead}`, blockedByVerification: true });
+    expect(aspirin(demo.proposalRowsAfterCheck)).toMatchObject({ lineProductName: 'Aspirin 75 mg', blockedByVerification: false });
+    // Nothing else differs between the two states, and nothing else is ever blocked.
+    const others = (rows: readonly { kind: string }[]) => rows.filter((r) => r.kind !== 'new');
+    expect(others(demo.proposalRowsAfterCheck)).toEqual(others(demo.proposalRows));
+    expect(demo.proposalRows.filter((r) => r.blockedByVerification)).toHaveLength(1);
+    expect(demo.proposalRowsAfterCheck.some((r) => r.blockedByVerification)).toBe(false);
+    // The decision on Aspirin is made on the checked line.
+    expect(demo.decisions.some((d) => 'lineProductName' in d && d.lineProductName === 'Aspirin 75 mg')).toBe(true);
+  });
 });
 
 describe('todayFor', () => {

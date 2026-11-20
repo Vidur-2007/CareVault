@@ -88,7 +88,8 @@ describe('saving a prescription', () => {
   it('gives the rows, order and choices of section 9.3', async () => {
     const { proposal } = await review(DEMO);
     expect(proposal!.rows.map((r) => [r.kind, r.line?.productName ?? null, r.medicine?.id ?? null, r.asked, r.blockedByVerification])).toEqual(
-      sampleCase.expected.demoPrescription.proposalRows.map((r) => [r.kind, r.lineProductName, r.medicineId, r.asked, false]),
+      // Typed lines are checked lines: the state after the check.
+      sampleCase.expected.demoPrescription.proposalRowsAfterCheck.map((r) => [r.kind, r.lineProductName, r.medicineId, r.asked, r.blockedByVerification]),
     );
     expect(proposal!.passiveNotMentionedCount).toBe(3);
     expect(proposal!.routineRevision).toBe(await services.routine.revision(IDS.ramesh));
