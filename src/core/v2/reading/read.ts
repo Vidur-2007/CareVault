@@ -21,8 +21,8 @@ export interface ReadingDepsV2 {
   renderPdfPage(file: Blob, page: number): Promise<Blob>;
   /** Engines in order of preference; the next one is tried when one fails. */
   engines(): Promise<OcrEngineV2[]>;
-  /** One image to the cloud reader. Only called with consent. */
-  cloud(image: Blob): Promise<V1Candidate>;
+  /** One image to the cloud reader, with its page when it came from a PDF. Only called with consent. */
+  cloud(image: Blob, page?: number): Promise<V1Candidate>;
 }
 
 export function defaultReadingDepsV2(fetcher?: typeof fetch): ReadingDepsV2 {
@@ -32,9 +32,9 @@ export function defaultReadingDepsV2(fetcher?: typeof fetch): ReadingDepsV2 {
     renderPdfPage: (file, page) => renderPdfPage(file, page),
     // Tesseract.js first until the phone benchmark (step 10) has been run.
     engines: () => (engines ??= Promise.resolve([createTesseractEngineV2(), createPaddleEngineV2()])),
-    cloud: async (image) => {
+    cloud: async (image, page) => {
       try {
-        return await extractInCloud(image, fetcher);
+        return await extractInCloud(image, fetcher, page);
       } catch (error) {
         throw toV2Error(error);
       }
@@ -46,8 +46,11 @@ export function defaultReadingDepsV2(fetcher?: typeof fetch): ReadingDepsV2 {
 export function toV2Error(error: unknown): unknown {
   if (!(error instanceof V1ServiceError)) return error;
   // A 503 from the server means cloud reading is not set up on this copy.
-  const code = error.code === 'network' && /\(503\)/.test(error.message) ? 'not_configured' : error.code;
-  return new ServiceError(code, error.message);
+  if (error.code === 'network' && /\(503\)/.test(error.message)) {
+    return new ServiceError('not_configured', 'Cloud reading is not set up on this server yet.');
+  }
+  // v2 messages are for the caregiver: no status codes in the text.
+  return new ServiceError(error.code, error.message.replace(/\s*\(\d{3}\)/, ''));
 }
 
 export interface ReadResult {
@@ -176,6 +179,7 @@ export async function readFile(file: Blob, opts: { allowCloud: boolean }, deps: 
     throw new ServiceError('cloud_consent_required', 'This could not be read well enough on the device.');
   }
   firstImage ??= await deps.renderPdfPage(file, 1);
-  const fromCloud = parsedFromCloud(await deps.cloud(firstImage));
+  // The image sent is the photo itself, or the first page of a scanned PDF.
+  const fromCloud = parsedFromCloud(kind === 'pdf' ? await deps.cloud(firstImage, 1) : await deps.cloud(firstImage));
   return { engine: 'cloud', source: 'cloud', parsed: fromCloud, ocrLines: [], pageCount, pagesRead: 1, confidence: 1 };
 }

@@ -693,3 +693,52 @@ Wrong and not flagged:
 #### Benchmark results (phones)
 
 (Paste the phone tables here.)
+
+### Step 11: server updates and deployment setup
+
+- **`POST /api/extract` takes an optional `page`** (a whole number from 1 to 500). It goes into the user turn sent with the image: "It is page 2 of the document." The system instruction is unchanged (transcribe only, null for unreadable, no medical knowledge), and a test checks that. The cloud client sends the page when it has one, and the v2 reader sends page 1 for the first page of a scanned PDF and no page for a photo.
+- **v2 cloud errors:** a 503 becomes `not_configured`, "Cloud reading is not set up on this server yet.", and other messages lose their status code, e.g. "(500)".
+- **`.github/workflows/keepalive.yml`:** every 3 days (and by hand), `GET /api/health` on the repository variable `CAREVAULT_URL`.
+  - It does nothing when the variable is not set.
+  - It fails if the app does not answer, and warns if the share store does not.
+  - The health route's one cheap query keeps a free Supabase project from pausing after a week without activity.
+- **Deployment rehearsed locally:** `npm run build` then `PORT=8899 npm start`.
+  - `/api/health` answers `{ ok: true, shareStore: false, cloudReading: false }` with no keys set.
+  - The app and its client-side routes (e.g. `/share/:id`) are served.
+  - `/api/extract` answers "not set up".
+  - The OCR benchmark page and its images are not served in production.
+
+#### Setup checklist (for the human)
+
+No real key goes in the repository. Values go into the hosting dashboard, and into a local `.env` (git-ignored) for local use.
+
+1. **Supabase (share store).**
+   1. Create a free project at supabase.com. A region near the users (Mumbai) keeps links fast.
+   2. In the SQL editor, run `server/schema.sql` once. It creates the `shares` table with row level security on and no policies, so only the server's service role can use it.
+   3. In Project Settings > API, copy the **Project URL** to `SUPABASE_URL` and the **service_role** key to `SUPABASE_SERVICE_ROLE_KEY`. The service role key is a server secret: never put it in a `VITE_` variable.
+   4. Free projects pause after about a week without activity. The keep-alive workflow (step 5) prevents that.
+2. **Gemini (cloud reading, used only with consent per document).**
+   1. In Google AI Studio, create an API key and put it in `GEMINI_API_KEY`.
+   2. Set `GEMINI_MODEL` to a current model from AI Studio's model list that accepts images and structured JSON output. A Flash-class model is enough; the server sends temperature 0 and a JSON schema.
+   3. Check Google's current terms before real patient documents go to the cloud reader: on unpaid tiers, Google may use prompts to improve its products. A key on a billing-enabled project avoids that.
+3. **Google OAuth client (Gmail import).**
+   1. In Google Cloud Console, create a project and enable the **Gmail API**.
+   2. On the OAuth consent screen, choose External, publishing status **Testing**, and the scope `.../auth/gmail.readonly`. Add each caregiver's Gmail address as a **test user**; only they can connect while in Testing, which also avoids Google's verification for this restricted scope.
+   3. Under Credentials > Create OAuth client ID > **Web application**, add the **Authorized JavaScript origins**: `http://localhost:5173` for development, and the public `https://` URL once it exists. No redirect URI is needed: the app uses the token model.
+   4. Put the client ID in `VITE_GOOGLE_CLIENT_ID`.
+4. **Deployxa (hosting).** Its public docs say projects connect from GitHub, GitLab or Bitbucket; it detects the build and start commands, which can be overridden; secrets are stored encrypted; deployments are health-checked; and custom domains get automatic HTTPS. The free plan has 3 projects and 512 MB of RAM. They do not say how environment variables are entered, whether they are visible at build time, which port is expected, or whether free apps sleep. Check those in the dashboard.
+   1. Connect the GitHub repository and deploy the `main` branch. Until the merge checkpoint, `main` is the v1 app.
+   2. **Build command:** `npm run build`. It builds the app with Vite and compiles the server. The install must include devDependencies (Vite and TypeScript are build tools), so use `npm ci` and do not set `NODE_ENV=production` for the install step.
+   3. **Start command:** `npm start` (`node dist-server/server/index.js`). Node 22.12 or newer, as in `package.json` `engines`.
+   4. **Runtime variables:** `GEMINI_API_KEY`, `GEMINI_MODEL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
+   5. **Build-time variables:** `VITE_GOOGLE_CLIENT_ID` and `VITE_USE_MOCK=false`. Vite writes these into the app while building, so they must be available to the build step. After changing one, redeploy.
+   6. **Port:** the server listens on `PORT`. If Deployxa does not set it, set `PORT` to the port it expects.
+   7. **Health check path**, if asked: `/api/health`.
+   8. After the first deploy, open `https://<public URL>/api/health`. With every key set it answers `{"ok":true,"shareStore":true,"cloudReading":true}`.
+5. **Keep-alive.** In the GitHub repository, go to Settings > Secrets and variables > Actions > **Variables** and add `CAREVAULT_URL` = the public URL. Then run the "Keep alive" workflow once from the Actions tab. GitHub stops scheduled workflows in a repository with no activity for 60 days; a push or a manual run restarts them.
+6. **Add the public URL to the OAuth client's JavaScript origins** (step 3.3), then check that "Connect Gmail" opens Google's window on the public site.
+7. **Second-device check of a share link.**
+   1. On phone A, open the public URL, load the sample profile, and share Ramesh's passport for 1 hour.
+   2. Open the link on phone B, on mobile data and not signed in to anything. The same passport appears.
+   3. On phone A, revoke the link. Reloading on phone B shows "This link was revoked."
+   4. Repeat after the merge checkpoint, when the v2 app is on `main`.

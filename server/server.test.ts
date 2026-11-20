@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
-import { MAX_IMAGE_BYTES } from './extract.ts';
+import { MAX_IMAGE_BYTES, SYSTEM_INSTRUCTION, userPrompt } from './extract.ts';
 import { createApp } from './index.ts';
 import { createSupabaseShareStore, hashToken, MAX_CIPHERTEXT_CHARS, type ShareRow, type SupabaseLike } from './share.ts';
 
@@ -161,6 +161,14 @@ describe('share routes', () => {
 });
 
 describe('extract route', () => {
+  it('the page goes into the user turn only; the system instruction is unchanged', () => {
+    expect(userPrompt()).toBe('Transcribe this image into the fields.');
+    expect(userPrompt(2)).toBe('Transcribe this image into the fields. It is page 2 of the document.');
+    expect(SYSTEM_INSTRUCTION).toContain('Transcribe only what is printed or written in the image.');
+    expect(SYSTEM_INSTRUCTION).not.toMatch(/page/i);
+  });
+
+
   const image = { imageBase64: Buffer.from([0xff, 0xd8, 0xff, 1, 2, 3]).toString('base64'), mimeType: 'image/jpeg' };
   const answer = { documentType: 'other', documentDate: null, prescriberName: null, rawText: 'DOLO 650', lines: [] };
 
@@ -171,6 +179,9 @@ describe('extract route', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ...answer, engine: 'cloud', needsCloud: false });
     expect(extractor).toHaveBeenCalledWith(image.imageBase64, 'image/jpeg');
+    // The page of the document, when the image is one, goes with it.
+    await json('POST', '/api/extract', { ...image, page: 3 });
+    expect(extractor).toHaveBeenLastCalledWith(image.imageBase64, 'image/jpeg', 3);
   });
 
   it('validates the body and rejects images over 6 MB', async () => {
@@ -178,6 +189,7 @@ describe('extract route', () => {
     const { json } = setup({ extractor });
     expect((await json('POST', '/api/extract', { imageBase64: image.imageBase64 })).status).toBe(400);
     expect((await json('POST', '/api/extract', { ...image, mimeType: 'application/pdf' })).status).toBe(400);
+    for (const page of [0, -1, 1.5, 501, '2']) expect((await json('POST', '/api/extract', { ...image, page })).status, String(page)).toBe(400);
     expect((await json('POST', '/api/extract', { ...image, imageBase64: '<script>' })).status).toBe(400);
     const tooBig = 'A'.repeat(Math.ceil(((MAX_IMAGE_BYTES + 3000) * 4) / 3));
     expect((await json('POST', '/api/extract', { ...image, imageBase64: tooBig })).status).toBe(413);

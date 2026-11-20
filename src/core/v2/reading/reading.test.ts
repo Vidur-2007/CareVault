@@ -261,10 +261,10 @@ describe('readFile', () => {
     expect(d.cloud).toHaveBeenCalledWith(photo);
     expect(result).toMatchObject({ engine: 'cloud', source: 'cloud', ocrLines: [] });
     expect(result.parsed.lines[0]).toMatchObject({ productName: 'Dolo 650', ingredients: [{ name: 'paracetamol', strength: 650, strengthRaw: '650 mg' }] });
-    // A scanned PDF sends its first page as an image.
+    // A scanned PDF sends its first page as an image, saying it is page 1; a photo has no page.
     const scanned = deps({ engines: async () => [engine('tesseract', ocrPage('', 0))] });
     await readFile(await fixture('scanned-five-pages.pdf', 'application/pdf'), { allowCloud: true }, scanned);
-    expect(scanned.cloud).toHaveBeenCalledWith(await scanned.renderPdfPage.mock.results[0].value);
+    expect(scanned.cloud).toHaveBeenCalledWith(await scanned.renderPdfPage.mock.results[0].value, 1);
   });
 
   it('rejects what is not a photo or a PDF, and a locked PDF', async () => {
@@ -290,7 +290,13 @@ describe('readFile', () => {
   });
 
   it('cloud errors become v2 errors; a 503 means the cloud reader is not set up', () => {
-    expect(toV2Error(new V1ServiceError('network', 'The cloud reader did not answer (503). Please try again.'))).toMatchObject({ code: 'not_configured' });
+    expect(toV2Error(new V1ServiceError('network', 'The cloud reader did not answer (503). Please try again.'))).toMatchObject({
+      code: 'not_configured', message: 'Cloud reading is not set up on this server yet.',
+    });
+    // No status code reaches the caregiver.
+    expect(toV2Error(new V1ServiceError('network', 'The cloud reader did not answer (500). Please try again.'))).toMatchObject({
+      code: 'network', message: 'The cloud reader did not answer. Please try again.',
+    });
     const network = toV2Error(new V1ServiceError('network', 'offline'));
     expect(network).toBeInstanceOf(ServiceError);
     expect(network).toMatchObject({ code: 'network' });
