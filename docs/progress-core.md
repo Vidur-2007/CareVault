@@ -424,3 +424,62 @@ Tests: 6 in `src/core/v2/reading/sampleDocs.test.ts`, using the real v2 reader t
 `npm run check`: 41 files, 623 tests, build passing.
 
 For the demo: photograph or upload `public/sample-docs/rx-rao-2026-11-13.pdf` as the new prescription. Uploading the PDF uses its text layer; a photo of the printed page goes through OCR, which may read the blot differently but will still flag it.
+
+### Step 6: the reported routine and contextual review
+
+Rules, all pure (state in, plan out, ids and time passed in):
+- **`src/core/v2/rules/routine.ts`:**
+  - add, update, setStatus (a stopped entry taken again is `restarted`) and the legacy batch (`resolveLegacy`);
+  - undo, which restores `before`, undoes a replacement as one change, and is refused with `stale` when a later event touched the entry;
+  - the verification gate, and allergies, where "No known allergies" is exclusive with listed allergies.
+- **`src/core/v2/rules/proposal.ts`:** saved lines against the routine (`taking`, `uncertain`, `not_started`):
+  - row kinds, `asked`, `choices`, `blockedByVerification`, the row order and `passiveNotMentionedCount`, as in overview 9.3;
+  - matching by the set of normalized ingredients only. When several entries share them, an identical entry wins, then this prescriber's, then the first by name;
+  - a name that matches an entry whose ingredients differ, or a line with no ingredients, is `uncertain_match` and is never merged.
+- **`src/core/v2/rules/decide.ts`:** the effects table, checked in full before anything is applied:
+  - the gate on `started` and `started_new`;
+  - the stale check;
+  - idempotency;
+  - `ask_doctor`, which adds a question to the next visit (no duplicate text) and turns a changed or missing entry into `uncertain`;
+  - `same_medicine` and `different_medicine`, which reclassify the row and offer it again.
+
+Services (`createRealServicesV2`):
+- **`prescriptions.save`** stores the lines and never touches the routine. Values still `extracted` on the saved lines become `user_confirmed`, because the user saw them in the line form; flagged values and values left unknown keep the line unverified. Saving the same lines again returns the same proposal and writes nothing. When nothing differs, it returns `null` and removes an earlier proposal.
+- **`prescriptions.lines`**.
+- **`routine.*`:**
+  - `proposalFor` always recomputes against the current routine and lines, keeps the decisions, and reopens a dismissed review.
+  - `decide` writes the routine, the events, the visit and the proposal in one transaction and raises the revision once.
+  - `undo` reopens the review row whose decision it reverses.
+  - `history` and `profileHistory` are newest first.
+- **`routine.ingredientTotals`**, using the v1 totals over `taking` and `uncertain` entries. It is used here for the 3450 mg check; step 7 keeps it.
+- **`health.*`**.
+- **`documents.reviewFields`** also corrects the saved lines, so "Check the values" unblocks the row.
+
+How a proposal remembers things (stored with it, never returned):
+- which entry an uncertain line was said to be;
+- which entries each decision wrote, so undo can reopen the row.
+
+Rows decided with a routine-changing answer are kept exactly as decided. Skipped and ask-the-doctor rows are compared afresh. A proposal is `reviewed` when every asked row has an answer other than skip.
+
+Tests:
+- **`src/core/v2/review.test.ts`, 41 tests through the services:**
+  - every row kind and every choice;
+  - skip, then reopen;
+  - dismiss, then `proposalFor`;
+  - the same lines saved twice;
+  - stale;
+  - undo, undo refused, and undoing either half of a replacement;
+  - gate refusal, then success after correction;
+  - "not mentioned" asked only for the same prescriber;
+  - uncertain matches never merging;
+  - the pack gate;
+  - allergies;
+  - the two profiles kept apart.
+- **`src/core/v2/golden.test.ts`:** reads the demo PDF with the real reader. The rows match the fixture, Aspirin is blocked and named exactly as printed, and `started` is refused. After the strength is corrected, the rows and lines match the fixture exactly. The sample decisions then give the expected routine. It also checks 3450 mg and that Lakshmi is untouched.
+- **`src/core/v2/rules/review.rules.test.ts`:** the edge paths. It found one bug: undoing an addition whose entry was already gone crashed while recording the event. Fixed.
+
+Branch coverage of `src/core/v2/rules`: **100%** (509 of 509). `npm run check`: 44 files, 677 tests, build passing. `eslint` clean.
+
+Contract request 2 is filed: the fixture names the blocked Aspirin row `Aspirin 75 mg`, which cannot be true before the check.
+
+TEMPORARY, still `not built yet`: attention and records (step 7); visits, passport and sharing (step 8); gmail (step 9).

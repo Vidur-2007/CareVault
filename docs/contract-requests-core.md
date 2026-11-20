@@ -22,3 +22,15 @@ Behaviour the core would implement: trims both fields, rejects an empty name, an
 ## Status (v2)
 
 Request 1 is resolved in contract v2: `profiles.addPrescriber(profileId, { name, specialty })` is part of `docs/specs/00-overview.spec.md`, section 8.2. New requests for v2 go below this line.
+
+## 2. The demo Aspirin row's name before the check (open, raised in core step 6)
+
+**Problem.** In `src/contract/fixtures/sampleCase.ts`, `expected.demoPrescription.proposalRows` lists the Aspirin row as `lineProductName: 'Aspirin 75 mg'` together with `blockedByVerification: true`. The two cannot hold at once. While the row is blocked, the strength has not been checked, so the line still reads `Aspirin 7? mg` (the same fixture's `aspirinStrengthAsRead`). Once it is corrected to 75 mg, the line is `Aspirin 75 mg` and the row is no longer blocked.
+
+**How the core tests it now** (`src/core/v2/golden.test.ts`): kinds, routine entries, `asked` and `blockedByVerification` are checked against the fixture right after saving, and the name is checked as `Aspirin ${aspirinStrengthAsRead}`. After the correction, every field of every row is checked, including `lineProductName`, with `blockedByVerification: false`.
+
+**Requested change** (fixtures only, no type change): either
+- document on `proposalRows` that `lineProductName` is the name after verification, or
+- add `lineProductNameBeforeCheck: 'Aspirin 7? mg'` to the Aspirin row.
+
+**Until it is agreed:** nothing in the frozen files was changed. A mock that returns `Aspirin 75 mg` while blocked shows a value the user has not confirmed yet. The UI should show the line as read until the check is done.

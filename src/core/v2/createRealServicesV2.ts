@@ -11,12 +11,22 @@ import {
   type ExtractionCandidate,
   type FieldEvidence,
   type DuplicateInfo,
+  type HealthEntry,
+  type HealthEntryKind,
   type ID,
   type ISODate,
+  type PrescriptionLine,
   type Prescriber,
   type Profile,
+  type RoutineMedicine,
+  type RoutineStatus,
   type ShareLink,
+  type Visit,
 } from '../../contract/types';
+import type { Medicine as LegacyMedicine } from '../../contract/legacy/types';
+import { todayFor } from '../../contract/today';
+import { ingredientTotals } from '../rules/totals';
+import { normalizeIngredients } from '../rules/normalize';
 import { createChangeNotifier } from '../db/events';
 import { exportBackupV2, importBackupV2 } from './backup/backup';
 import { byTime, createReposV2, type ReposV2 } from './db/repos';
@@ -26,6 +36,22 @@ import { defaultReadingDepsV2, readFile, type ReadingDepsV2 } from './reading/re
 import { classify } from './rules/classify';
 import { matchPatient, readPatientName } from './rules/patient';
 import { applyDecisions, applyEvidence, buildEvidence, mergeEvidence, toExtractedLines } from './rules/verify';
+import { planDecisions, rebuildWith } from './rules/decide';
+import { buildProposal, hasNothingToAsk, sameProposal, toPublic, type StoredProposal } from './rules/proposal';
+import {
+  assertLineReviewable,
+  confirmExtracted,
+  isLineVerified,
+  planAdd,
+  planHealthAdd,
+  planResolveLegacy,
+  planSetStatus,
+  planUndo,
+  planUpdate,
+  refreshLines,
+  writesRoutine,
+  type RoutinePlan,
+} from './rules/routine';
 
 export interface RealServicesV2Options {
   /** Defaults to the app database, 'carevault'. */
@@ -114,6 +140,17 @@ export function newestDocumentFirst(a: DocumentRecord, b: DocumentRecord): numbe
   return Date.parse(b.addedAt) - Date.parse(a.addedAt) || a.id.localeCompare(b.id);
 }
 
+const STATUS_ORDER: readonly RoutineStatus[] = ['taking', 'uncertain', 'not_started', 'stopped'];
+/** Taken first, then not confirmed, not started and stopped; by name within each. */
+const routineOrder = (a: RoutineMedicine, b: RoutineMedicine) =>
+  STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || a.productName.localeCompare(b.productName) || a.id.localeCompare(b.id);
+
+const HEALTH_ORDER: readonly HealthEntryKind[] = ['allergy', 'condition', 'procedure', 'note'];
+const healthOrder = (a: HealthEntry, b: HealthEntry) =>
+  HEALTH_ORDER.indexOf(a.kind) - HEALTH_ORDER.indexOf(b.kind) || Date.parse(a.recordedAt) - Date.parse(b.recordedAt) || a.id.localeCompare(b.id);
+
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
 const cleanTags = (tags: readonly string[]) => [...new Set(tags.map((t) => t.trim().toLowerCase()).filter(Boolean))];
 const cleanList = (items: readonly string[]) => [...new Set(items.map((t) => t.trim()).filter(Boolean))];
 
@@ -163,6 +200,63 @@ export function createRealServicesV2(options: RealServicesV2Options = {}): CareV
   }
 
   const isActiveLink = (link: ShareLink) => !link.revoked && Date.parse(link.expiresAt) > clock().getTime();
+
+  const ruleCtx = () => ({ now: nowIso(), newId });
+  const deviceToday = (): ISODate => {
+    const d = clock();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  /** Stores a routine plan; bumps the revision once when the routine was written. Inside a batch. */
+  async function applyPlan(profileId: ID, plan: RoutinePlan): Promise<number> {
+    if (plan.deleteIds.length > 0) await repos.routine.bulkDelete(plan.deleteIds);
+    if (plan.upserts.length > 0) await repos.routine.bulkPut(plan.upserts);
+    if (plan.events.length > 0) await repos.routineEvents.bulkPut(plan.events);
+    return writesRoutine(plan) ? repos.routineRevision.bump(profileId) : repos.routineRevision.get(profileId);
+  }
+
+  /** The first visit on or after the profile's today. */
+  async function nextVisit(profileId: ID): Promise<Visit | null> {
+    const today = todayFor(profileId, deviceToday());
+    return (await repos.visits.byProfile(profileId)).find((v) => v.at.slice(0, 10) >= today) ?? null;
+  }
+
+  const storedProposalOf = async (documentId: ID) =>
+    ((await repos.proposals.byDocument(documentId)) as StoredProposal[]).sort(byTime((p) => p.createdAt))[0] ?? null;
+
+  /** The proposal for a document, recomputed against the current routine and lines. Inside a batch. */
+  async function currentProposal(doc: DocumentRecord, lines: PrescriptionLine[], previous: StoredProposal | null): Promise<StoredProposal> {
+    return buildProposal({
+      proposalId: previous?.id ?? newId(),
+      profileId: doc.profileId,
+      documentId: doc.id,
+      prescriberId: previous?.prescriberId ?? doc.prescriberId,
+      lines,
+      routine: await repos.routine.byProfile(doc.profileId),
+      routineRevision: await repos.routineRevision.get(doc.profileId),
+      now: nowIso(),
+      previous,
+    });
+  }
+
+  /** Stores the proposal (or removes it when nothing is left to ask) and returns what the caller sees. */
+  async function keepProposal(next: StoredProposal, previous: StoredProposal | null) {
+    if (hasNothingToAsk(next)) {
+      if (previous) await repos.proposals.delete(previous.id);
+      return null;
+    }
+    if (!previous || !sameProposal(previous, next)) await repos.proposals.put(next);
+    return toPublic(next);
+  }
+
+  /** The verification gate for values taken from a document (a pack photo). */
+  async function gateDocument(documentId: ID): Promise<void> {
+    const evidence = await repos.fieldEvidence.byDocument(documentId);
+    for (const lineIndex of new Set(evidence.map((e) => e.lineIndex).filter((i): i is number => i !== null))) {
+      assertLineReviewable(evidence, lineIndex);
+    }
+    await repos.fieldEvidence.bulkPut(confirmExtracted(evidence, null, nowIso()));
+  }
 
   const services: CareVaultServices = {
     profiles: {
@@ -367,6 +461,10 @@ export function createRealServicesV2(options: RealServicesV2Options = {}): CareV
             throw message.startsWith('Unknown field') ? new ServiceError('not_found', 'This value is not part of this record.') : new ServiceError('unknown', 'Please enter the corrected value.');
           }
           await repos.fieldEvidence.bulkPut(next.filter((e, i) => e !== current[i]));
+          // A correction made while checking the values also corrects the saved prescription lines.
+          const lines = await repos.prescriptionLines.byDocument(id);
+          const refreshed = refreshLines(lines, next);
+          await repos.prescriptionLines.bulkPut(refreshed.filter((l, i) => !sameJson(l, lines[i])));
           return next.sort(evidenceOrder);
         }),
       ),
@@ -421,13 +519,249 @@ export function createRealServicesV2(options: RealServicesV2Options = {}): CareV
         };
       }),
     },
-    prescriptions: { save: notBuilt, lines: notBuilt },   // TEMPORARY: step 6
-    routine: {                                            // TEMPORARY: step 6 (totals: step 7)
-      list: notBuilt, get: notBuilt, history: notBuilt, profileHistory: notBuilt, revision: notBuilt,
-      add: notBuilt, update: notBuilt, setStatus: notBuilt, undo: notBuilt, proposalFor: notBuilt,
-      decide: notBuilt, dismiss: notBuilt, resolveLegacy: notBuilt, ingredientTotals: notBuilt,
+    prescriptions: {
+      save: guarded(async (documentId, prescriberId, input) =>
+        repos.transaction(async () => {
+          const doc = await need(repos.documents.get(documentId), 'record');
+          await prescriberOf(doc.profileId, prescriberId);
+          if (new Set(input.map((l) => l.lineIndex)).size !== input.length) {
+            throw new ServiceError('unknown', 'Each line of the prescription must have its own number.');
+          }
+          for (const line of input) {
+            if (!line.productName.trim()) throw new ServiceError('unknown', 'Each line needs the medicine name.');
+          }
+
+          // The values the user saw in the line form and did not flag count as reviewed.
+          const evidence = await repos.fieldEvidence.byDocument(documentId);
+          const confirmed = input.flatMap((l) => confirmExtracted(evidence, l.lineIndex, nowIso()));
+          await repos.fieldEvidence.bulkPut(confirmed);
+          const reviewed = evidence.map((e) => confirmed.find((c) => c.id === e.id) ?? e);
+
+          const existing = await repos.prescriptionLines.byDocument(documentId);
+          const lines: PrescriptionLine[] = [...input]
+            .sort((a, b) => a.lineIndex - b.lineIndex)
+            .map((l) => {
+              const line = {
+                id: existing.find((e) => e.lineIndex === l.lineIndex)?.id ?? newId(),
+                documentId,
+                lineIndex: l.lineIndex,
+                productName: l.productName.trim().replace(/\s+/g, ' '),
+                ingredients: normalizeIngredients(l.ingredients),
+                form: l.form,
+                dosesPerDay: l.dosesPerDay,
+                instruction: l.instruction.trim(),
+                verified: false,
+              };
+              return { ...line, verified: isLineVerified(reviewed, line) };
+            });
+          if (!sameJson(lines, existing)) {
+            await repos.prescriptionLines.deleteByDocument(documentId);
+            await repos.prescriptionLines.bulkPut(lines);
+          }
+          const filedDoc = doc.prescriberId === prescriberId ? doc : await repos.documents.put({ ...doc, prescriberId });
+
+          const previous = await storedProposalOf(documentId);
+          // Saving again is a fresh look: a dismissed review opens again, for this prescriber.
+          const base = previous ? { ...previous, prescriberId, status: previous.status === 'dismissed' ? ('open' as const) : previous.status } : null;
+          const next = await currentProposal(filedDoc, lines, base);
+          return { lines, proposal: await keepProposal(next, previous) };
+        }),
+      ),
+
+      lines: guarded(async (documentId) => {
+        await need(repos.documents.get(documentId), 'record');
+        return repos.prescriptionLines.byDocument(documentId);
+      }),
     },
-    health: { list: notBuilt, add: notBuilt, remove: notBuilt },          // TEMPORARY: step 6
+
+    routine: {
+      list: guarded(async (profileId) => {
+        await need(repos.profiles.get(profileId), 'profile');
+        return (await repos.routine.byProfile(profileId)).sort(routineOrder);
+      }),
+
+      get: guarded((id) => need(repos.routine.get(id), 'medicine')),
+
+      // Newest first.
+      history: guarded(async (medicineId) => {
+        const events = await repos.routineEvents.byMedicine(medicineId);
+        if (events.length === 0) await need(repos.routine.get(medicineId), 'medicine');
+        return events.reverse();
+      }),
+
+      profileHistory: guarded(async (profileId) => {
+        await need(repos.profiles.get(profileId), 'profile');
+        return (await repos.routineEvents.byProfile(profileId)).reverse();
+      }),
+
+      revision: guarded(async (profileId) => {
+        await need(repos.profiles.get(profileId), 'profile');
+        return repos.routineRevision.get(profileId);
+      }),
+
+      add: guarded(async (profileId, input, opts) =>
+        repos.transaction(async () => {
+          await need(repos.profiles.get(profileId), 'profile');
+          if (opts.documentId !== null) {
+            const doc = await need(repos.documents.get(opts.documentId), 'record');
+            if (doc.profileId !== profileId) throw notFound('record');
+            await gateDocument(doc.id);
+          }
+          const plan = planAdd(profileId, input, opts, ruleCtx());
+          await applyPlan(profileId, plan);
+          return plan.upserts[0];
+        }),
+      ),
+
+      update: guarded(async (id, patch) =>
+        repos.transaction(async () => {
+          const entry = await need(repos.routine.get(id), 'medicine');
+          const plan = planUpdate(entry, patch, ruleCtx());
+          await applyPlan(entry.profileId, plan);
+          return plan.upserts[0] ?? entry;
+        }),
+      ),
+
+      setStatus: guarded(async (id, status) =>
+        repos.transaction(async () => {
+          const entry = await need(repos.routine.get(id), 'medicine');
+          const plan = planSetStatus(entry, status, ruleCtx());
+          await applyPlan(entry.profileId, plan);
+          return plan.upserts[0] ?? entry;
+        }),
+      ),
+
+      undo: guarded(async (eventId) =>
+        repos.transaction(async () => {
+          const target = await need(repos.routineEvents.get(eventId), 'change');
+          const events = await repos.routineEvents.byProfile(target.profileId);
+          const entries = new Map((await repos.routine.byProfile(target.profileId)).map((m) => [m.id, m]));
+          const plan = planUndo(target, events, entries, ruleCtx());
+          await applyPlan(target.profileId, plan);
+
+          // The review row whose decision made this change can be answered again.
+          if (target.proposalId !== null) {
+            const proposal = (await repos.proposals.get(target.proposalId)) as StoredProposal | undefined;
+            const touched = new Set(plan.events.map((e) => e.medicineId));
+            if (proposal?.memory) {
+              const effects = { ...proposal.memory.effects };
+              const reopened = proposal.rows.map((row) => {
+                if (!(effects[row.id] ?? []).some((m) => touched.has(m))) return row;
+                delete effects[row.id];
+                return { ...row, decision: null, decidedAt: null };
+              });
+              const reopenedProposal: StoredProposal = { ...proposal, rows: reopened, status: 'open', memory: { ...proposal.memory, effects } };
+              await repos.proposals.put(reopenedProposal);
+            }
+          }
+          const restored = plan.upserts.find((m) => m.id === target.medicineId);
+          return restored ?? target.after ?? target.before!;
+        }),
+      ),
+
+      proposalFor: guarded(async (documentId) =>
+        repos.transaction(async () => {
+          const doc = await need(repos.documents.get(documentId), 'record');
+          const lines = await repos.prescriptionLines.byDocument(documentId);
+          const previous = await storedProposalOf(documentId);
+          if (lines.length === 0) return previous ? toPublic(previous) : null;
+          // Opening the review from the document page reopens a dismissed one.
+          const base = previous && previous.status === 'dismissed' ? { ...previous, status: 'open' as const } : previous;
+          const next = await currentProposal(doc, lines, base);
+          return keepProposal(next, previous);
+        }),
+      ),
+
+      decide: guarded(async (proposalId, decisions, expectedRevision) =>
+        repos.transaction(async () => {
+          const stored = (await need(repos.proposals.get(proposalId), 'review')) as StoredProposal;
+          const doc = await need(repos.documents.get(stored.documentId), 'record');
+          const lines = await repos.prescriptionLines.byDocument(doc.id);
+          const routine = await repos.routine.byProfile(doc.profileId);
+          const currentRevision = await repos.routineRevision.get(doc.profileId);
+          const now = nowIso();
+          const base = { proposalId, profileId: doc.profileId, documentId: doc.id, prescriberId: stored.prescriberId, lines, routineRevision: currentRevision, now };
+          const fresh = buildProposal({ ...base, routine, previous: stored });
+
+          const result = planDecisions(
+            {
+              proposal: fresh,
+              decisions,
+              expectedRevision,
+              currentRevision,
+              entries: new Map(routine.map((m) => [m.id, m])),
+              nextVisit: await nextVisit(doc.profileId),
+              rebuild: rebuildWith(base),
+            },
+            { now, newId },
+          );
+          const revision = await applyPlan(doc.profileId, result.plan);
+          if (result.visit) await repos.visits.put(result.visit);
+          const proposal: StoredProposal = {
+            ...result.proposal,
+            routineRevision: revision,
+            status: result.proposal.status === 'reviewed' ? 'reviewed' : decisions.length > 0 ? 'open' : result.proposal.status,
+          };
+          if (!sameProposal(stored, proposal)) await repos.proposals.put(proposal);
+          return { proposal: toPublic(proposal), changed: result.changed, questionsAdded: result.questionsAdded };
+        }),
+      ),
+
+      dismiss: guarded(async (proposalId) =>
+        repos.transaction(async () => {
+          const stored = (await need(repos.proposals.get(proposalId), 'review')) as StoredProposal;
+          const next: StoredProposal = { ...stored, status: 'dismissed' };
+          if (stored.status !== 'dismissed') await repos.proposals.put(next);
+          return toPublic(next);
+        }),
+      ),
+
+      resolveLegacy: guarded(async (profileId, takingIds, notTakingIds) =>
+        repos.transaction(async () => {
+          await need(repos.profiles.get(profileId), 'profile');
+          const plan = planResolveLegacy(await repos.routine.byProfile(profileId), takingIds, notTakingIds, ruleCtx());
+          await applyPlan(profileId, plan);
+          return plan.upserts;
+        }),
+      ),
+
+      // The v1 totals, over the entries that may be taken: 'taking' and 'uncertain'.
+      ingredientTotals: guarded(async (profileId) => {
+        await need(repos.profiles.get(profileId), 'profile');
+        const counted = (await repos.routine.byProfile(profileId))
+          .filter((m) => m.status === 'taking' || m.status === 'uncertain')
+          .map((m) => ({ ...m, status: 'confirmed_current' }) as unknown as LegacyMedicine);
+        return ingredientTotals(counted);
+      }),
+    },
+
+    health: {
+      list: guarded(async (profileId) => {
+        await need(repos.profiles.get(profileId), 'profile');
+        return (await repos.healthEntries.byProfile(profileId)).sort(healthOrder);
+      }),
+
+      add: guarded(async (profileId, input) =>
+        repos.transaction(async () => {
+          const profile = await need(repos.profiles.get(profileId), 'profile');
+          const existing = await repos.healthEntries.byProfile(profileId);
+          if (input.documentId) {
+            const doc = await need(repos.documents.get(input.documentId), 'record');
+            if (doc.profileId !== profileId) throw notFound('record');
+          }
+          const { add, removeIds } = planHealthAdd(existing, profile, input, ruleCtx());
+          if (existing.some((h) => h.id === add.id)) return add;
+          await repos.healthEntries.bulkDelete(removeIds);
+          return repos.healthEntries.put(add);
+        }),
+      ),
+
+      remove: guarded(async (id) => {
+        await need(repos.healthEntries.get(id), 'entry');
+        await repos.healthEntries.delete(id);
+      }),
+    },
+
     attention: { list: notBuilt },                                        // TEMPORARY: step 7
     records: { search: notBuilt, ask: notBuilt },                         // TEMPORARY: step 7
     visits: {                                                             // TEMPORARY: step 8
