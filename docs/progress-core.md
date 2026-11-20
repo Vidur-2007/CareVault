@@ -571,6 +571,6 @@ Tests:
 - `src/core/v2/rules/passport.rules.test.ts` and `src/core/v2/share/client.test.ts`: the edge paths and every server status.
 - The v2 tests pass in the local time zone, `TZ=Asia/Kolkata` and `TZ=UTC`.
 
-Branch coverage of `src/core/v2/rules` and `src/core/v2/share`: **100%** (900 of 900). `npm run check`: 50 files, 791 tests, build passing. `eslint` clean.
+Branch coverage of `src/core/v2/rules` and `src/core/v2/share`: **100%** (898 of 898). `npm run check`: 50 files, 791 tests, build passing. `eslint` clean.
 
 TEMPORARY, still `not built yet`: gmail (step 9).
