@@ -273,3 +273,34 @@ Notes for the UI side and the demo:
 - **v1 Gmail import history is not carried over.** The global list of imported message ids cannot be tied to a profile or an attachment, so a previously imported email may be offered again once; the duplicate check by file hash still catches it.
 
 Not tested: the upgrade in a real browser's IndexedDB (only fake-indexeddb). That happens at the merge checkpoint.
+
+### Step 2: backup v2
+
+Built: `src/core/v2/backup/backup.ts` (moves to `src/core/backup/` at the merge checkpoint).
+- **The format is unchanged from v1:** a JSON header line (`format`, `version`, `kdf`, `iterations`, `salt`, `iv`), a newline, then AES-GCM ciphertext; PBKDF2-HMAC-SHA256 with 600,000 iterations and a random salt. The header now says `version: 2`.
+- **Export** reads every table in one read transaction, so the copy is consistent. File bytes are encoded after the transaction ends, so it doesn't end early.
+- **Import** accepts version 1 and version 2. A version 1 payload is brought to v2 with the same `migrateV1` as the database upgrade. Before anything is replaced, every reference must resolve:
+  - each profile-scoped row's profile;
+  - each share's profile (null is allowed for v1 links);
+  - each line's and checked value's document;
+  - each history entry's medicine;
+  - each file's record.
+
+  Then everything is replaced in one transaction.
+
+Errors (for the UI):
+- `bad_passphrase`: wrong passphrase, or a damaged file. AES-GCM cannot tell the two apart.
+- `unsupported_file`: not a backup, an unknown version, a missing table, or a broken reference. The message names the problem, for example "This backup could not be read: a prescription line has no document."
+- `unknown` on export: an empty passphrase.
+
+In every refusal case the device is untouched.
+
+Tests: 10.
+- A v2 round trip into a device that had other data: every table and file comes back identical, including the routine revision and share revoke tokens.
+- **A real v1 backup made by the v1 exporter** restores into a clean v2 database: migrated per section 9.9, files, v1 share tokens and visit questions intact, the new tables empty.
+- Wrong passphrase, a damaged file, not-a-backup, an unknown version and a broken reference each leave the device byte-for-byte unchanged.
+- Each kind of broken reference is named.
+
+`npm run check`: 38 files, 547 tests, build passing.
+
+Not wired yet: `services.backup` in `createRealServicesV2` still rejects as "not built yet". The services are wired together once documents exist (step 3 onwards). Not tested: a real browser download and restore; that is at the merge checkpoint.
