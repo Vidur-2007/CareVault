@@ -240,3 +240,36 @@ Temporary until replaced (marked `TEMPORARY` in the code):
 - The v1 side (`src/contract/legacy`, the v1 mock and the v1 core) is removed at the merge checkpoint.
 
 `npm run check`: 35 test files, 508 tests, build passing. `eslint .` clean.
+
+### Step 1: storage v2 and migration from v1
+
+Built, under `src/core/v2/db/` (moved to `src/core/db/` when the v1 side is removed at the merge checkpoint):
+- **`schema.ts`: Dexie database `carevault`, upgraded in place.**
+  - Version 1 is the v1 schema, unchanged.
+  - Version 2 adds the v2 tables: `routine`, `routineEvents`, `healthEntries`, `fieldEvidence`, `proposals`, `snapshots`, `gmailImports`.
+  - Version 2 also re-indexes `documents` (`[profileId+sha256]`, `clinicalDate`) and `shares` (`profileId`), and maps every v1 row with `migrateV1` while the v1 tables still exist.
+  - Version 3 removes `medicines`, `events` and `reviewItems`.
+  - Two steps, because Dexie does not document reading a table in the same version that deletes it.
+- **`migrate.ts`:** the pure v1 → v2 mapping of overview section 9.9, function by function. The backup reader uses it in step 2.
+- **`repos.ts`:** typed repos for every v2 table, atomic batches, one notification per batch, and the per-profile routine revision (`routineRevision.get` and `.bump`, stored in `settings` as `routineRevision:<profileId>`).
+- **`seed.ts`:** `loadSampleProfiles` writes each sample profile that is missing, in one batch, and leaves existing ones untouched.
+
+Tests: 29.
+- **`migrate.test.ts`:** every row of the 9.9 table, documents, lines, events, visits, shares and settings.
+- **`db.test.ts`:**
+  - the schema and indexes;
+  - every repo round-trips;
+  - profile isolation;
+  - rollback across tables, including the revision;
+  - one notification per batch;
+  - seed idempotency;
+  - **a populated v1 database built with the v1 code and upgraded in place.** It checks that no profile, prescriber, document, file, line, visit, question, medicine, event, share revocation token or setting is lost, and that each v1 sample medicine lands in its 9.9 state.
+
+`npm run check`: 37 files, 537 tests, build passing. The v1 app and its tests are unchanged.
+
+Notes for the UI side and the demo:
+- **The v1 and v2 sample profiles share the id `sample-profile-ramesh`.** On a browser that loaded the v1 sample, the upgraded data keeps that migrated v1 copy. All its medicines are then "previously listed" and pending the batch review, which is correct behaviour for real data. `loadSampleProfiles` adds only Lakshmi there. **For the demo, use a fresh browser profile** (or clear site data) so the v2 sample case loads as specified.
+- **Do not run the v1 app and real v2 services in the same browser profile.** Once upgraded to version 3, v1 code can no longer open the database.
+- **v1 Gmail import history is not carried over.** The global list of imported message ids cannot be tied to a profile or an attachment, so a previously imported email may be offered again once; the duplicate check by file hash still catches it.
+
+Not tested: the upgrade in a real browser's IndexedDB (only fake-indexeddb). That happens at the merge checkpoint.
