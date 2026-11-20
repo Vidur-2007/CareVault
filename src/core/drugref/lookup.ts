@@ -11,6 +11,11 @@ export interface DrugEntry {
   ingredients: Ingredient[];
   /** Key into SOURCES.md. */
   source: string;
+  /**
+   * How strongly the composition is evidenced (SOURCES.md, "Evidence levels"). Only
+   * 'manufacturer' entries may raise a strength-mismatch flag in reading v2.
+   */
+  evidence: 'manufacturer' | 'secondary' | 'project';
 }
 
 export interface DrugMatch {

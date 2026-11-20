@@ -304,3 +304,44 @@ Tests: 10.
 `npm run check`: 38 files, 547 tests, build passing.
 
 Not wired yet: `services.backup` in `createRealServicesV2` still rejects as "not built yet". The services are wired together once documents exist (step 3 onwards). Not tested: a real browser download and restore; that is at the merge checkpoint.
+
+### Step 3: documents v2, doctors, drug reference evidence levels
+
+Built in `src/core/v2/createRealServicesV2.ts`, now the real v2 services for:
+- **Profiles:** `profiles.list`, `create`, `update`, `loadSampleProfile` (both sample profiles), `prescribers` and **`addPrescriber`**. `addPrescriber` trims the name, returns the existing doctor of that profile on a case-insensitive name match, and rejects an empty name or an unknown profile.
+- **Documents:** `add`, `get`, `list`, `update`, `file`, `fileRecord`, `remove`, `assignProfile`.
+- **Settings and wiring:** `settings`, `subscribe`, and `backup` (step 2's module, now wired).
+
+Behaviour for the UI side:
+- **`documents.add`** stores the original and its record in one transaction before any reading:
+  - The record starts `pending_review`, kind `other`, no date (`dateSource: 'unknown'`), patient match `not_found`.
+  - The title is `meta.title`, else the file name without its extension, else "New record".
+  - The type is read from the first bytes when the browser gives none (PDF, JPEG, PNG, WebP). An empty file, or anything that is not a photo or a PDF, is `unsupported_file`.
+- **Duplicates:** `duplicate` is the earliest record of the same profile with the same hash, from any source. The new record is stored too, so "use the existing record" and "cancel" both mean `documents.remove(newId)`.
+- **`documents.update`:**
+  - **Dates:** setting `clinicalDate` makes `dateSource: 'user'`; null makes it `'unknown'`. A date that does not exist (2026-02-30) or is not `YYYY-MM-DD` is refused.
+  - **Tags** are lowercased and de-duplicated, **test names** trimmed and de-duplicated, and an empty facility becomes null.
+  - **The doctor** must belong to the same profile (`not_found` otherwise).
+- **`documents.list`:** newest clinical date first; undated records last, newest added first.
+- **`documents.remove`** deletes the record, its file, lines, checked values and proposals, and takes it off visits. It returns the snapshots that mention it (their descriptor gets `removedAt`) and the active, unexpired, unrevoked links to those snapshots. The revoke token is never returned.
+- **`documents.assignProfile`** moves a record and its checked values to another profile and clears its doctor, because a doctor belongs to one profile.
+
+Drug reference: every entry in `table.json` has `evidence`. 59 are `manufacturer`; Telma 40, Telma H and Okacet 10 are `secondary`; Dolo 650 and the seven generic sample-case names are `project`. `SOURCES.md` has the table.
+- **Deviation from the core spec,** which said "the rest are manufacturer": the seven generic names have no manufacturer source, so I marked them `project`. That only makes reading v2 more cautious with them.
+
+Tests: 18 in `createRealServicesV2.test.ts`, replacing the Phase 0 stub test.
+- profiles and doctors, including reuse and isolation;
+- every document operation, with duplicates across sources but never across profiles;
+- type sniffing and refusals that store nothing;
+- date validation;
+- remove's effect on snapshots, links and visits;
+- reassignment;
+- sample files and offline;
+- the backup through the services;
+- one notification per write;
+- the evidence levels;
+- an exact list of methods still pending.
+
+`npm run check`: 38 files, 564 tests, build passing. `eslint .` clean.
+
+Still pending (reject as "not built yet"): `documents.fields` and `documents.reviewFields`, `reading.read` (step 4); `prescriptions`, `routine`, `health` (step 6); `attention`, `records` (step 7); `visits`, `passport`, `sharing` (step 8); `gmail` (step 9).
