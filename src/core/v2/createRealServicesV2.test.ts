@@ -6,6 +6,11 @@ import { IDS, sampleCase } from '../../contract/fixtures/sampleCase';
 import type { CareVaultServices } from '../../contract/services';
 import { ServiceError, type DocumentRecord, type Passport } from '../../contract/types';
 import table from '../drugref/table.json';
+import type { PdfLoader } from '../reading/pdfText';
+import type { OcrEngineV2, OcrPage } from './reading/ocr';
+import { readPdfPages } from './reading/pdf';
+import type { ReadingDepsV2 } from './reading/read';
+import { REASONS } from './rules/verify';
 import { createRealServicesV2, detectMimeType, isIsoDate, newestDocumentFirst } from './createRealServicesV2';
 import { CareVaultDbV2 } from './db/schema';
 
@@ -270,9 +275,6 @@ describe('drug reference evidence levels', () => {
 describe('methods of later steps', () => {
   it('reject as not built yet', async () => {
     const pending: [string, () => Promise<unknown>][] = [
-      ['documents.fields', () => services.documents.fields('x')],
-      ['documents.reviewFields', () => services.documents.reviewFields('x', [])],
-      ['reading.read', () => services.reading.read('x', { allowCloud: false })],
       ['prescriptions.save', () => services.prescriptions.save('x', 'y', [])],
       ['routine.list', () => services.routine.list(IDS.ramesh)],
       ['health.list', () => services.health.list(IDS.ramesh)],
@@ -287,5 +289,124 @@ describe('methods of later steps', () => {
       await expect(call(), name).rejects.toBeInstanceOf(ServiceError);
       await expect(call()).rejects.toMatchObject({ code: 'unknown', message: 'not built yet' });
     }
+  });
+});
+
+// ---------- reading v2 through the services ----------
+
+const legacyPdf: PdfLoader = () => import('pdfjs-dist/legacy/build/pdf.mjs') as unknown as ReturnType<PdfLoader>;
+async function fixture(name: string, type: string): Promise<Blob> {
+  const fs = (globalThis as unknown as { process: { getBuiltinModule(m: string): { readFileSync(p: string): Uint8Array } } }).process.getBuiltinModule('node:fs');
+  return new Blob([fs.readFileSync(`src/core/v2/reading/fixtures/${name}`) as BlobPart], { type });
+}
+const ocrPage = (text: string, confidence: number): OcrPage => ({ text, confidence, lines: text.split('\n').map((t) => ({ text: t, confidence, words: [] })) });
+
+describe('reading through the services', () => {
+  let cloud: ReturnType<typeof vi.fn>;
+  let ocrText: OcrPage;
+  let reader: CareVaultServices;
+
+  beforeEach(() => {
+    cloud = vi.fn();
+    ocrText = ocrPage('Lakeside Diagnostics\nLab report: Lipid profile\nPatient: Ramesh Iyer\nDate: 12/11/2026', 0.92);
+    const engine: OcrEngineV2 = { name: 'tesseract', recognize: async () => ocrText, dispose: async () => undefined };
+    const reading: ReadingDepsV2 = {
+      pdfPages: (file) => readPdfPages(file, legacyPdf),
+      renderPdfPage: async (_file, page) => new Blob([`page ${page}`], { type: 'image/png' }),
+      engines: async () => [engine],
+      cloud: cloud as never,
+    };
+    reader = createRealServicesV2({ db, now: () => clock, newId: () => `id-${(idCounter += 1)}`, fetch: fetcher as unknown as typeof fetch, reading });
+  });
+
+  it('reads a stored two-page prescription: lines, flags, page coverage, patient', async () => {
+    const { record } = await reader.documents.add(IDS.ramesh, await fixture('text-two-pages.pdf', 'application/pdf'), { source: 'upload' });
+    const candidate = await reader.reading.read(record.id, { allowCloud: false });
+    expect(candidate).toMatchObject({
+      documentId: record.id, kind: 'prescription', title: 'Cardiology prescription', clinicalDate: '2026-11-13',
+      prescriberName: 'Dr. Kavita Rao', facility: 'Sunrise Heart and Diabetes Clinic', patientNameRead: 'Ramesh Iyer',
+      patientMatch: 'match', engine: 'pdf_text', pageCount: 2, pagesRead: 2, needsCloud: false,
+    });
+    expect(candidate.lines.map((l) => l.productName)).toEqual(['Amlodipine 10 mg', 'Telmisartan 80 mg', 'Rosuvastatin 10 mg', 'Aspirin']);
+    const aspirinStrength = candidate.fields.find((f) => f.field === 'strength' && f.lineIndex === 3)!;
+    expect(aspirinStrength).toMatchObject({ status: 'needs_verification', raw: null, value: null, reasons: [REASONS.missingStrength], page: 2 });
+    expect(await reader.documents.fields(record.id)).toEqual(candidate.fields);
+    // Reading records what it learned about the file; the record's details stay as they were.
+    expect(await reader.documents.get(record.id)).toMatchObject({ kind: 'other', clinicalDate: null, pageCount: 2, pagesRead: 2, patientNameRead: 'Ramesh Iyer', patientMatch: 'match' });
+    expect(cloud).not.toHaveBeenCalled();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('a correction survives a re-read, and the line shows it', async () => {
+    const { record } = await reader.documents.add(IDS.ramesh, await fixture('text-two-pages.pdf', 'application/pdf'), { source: 'upload' });
+    const first = await reader.reading.read(record.id, { allowCloud: false });
+    const strength = first.fields.find((f) => f.field === 'strength' && f.lineIndex === 3)!;
+    const unit = first.fields.find((f) => f.field === 'unit' && f.lineIndex === 3)!;
+    clock = new Date('2026-11-14T09:30:00+05:30');
+    const reviewed = await reader.documents.reviewFields(record.id, [
+      { evidenceId: strength.id, action: 'correct', value: '75' },
+      { evidenceId: unit.id, action: 'correct', value: 'mg' },
+    ]);
+    expect(reviewed.find((f) => f.id === strength.id)).toMatchObject({ status: 'user_corrected', value: '75', reviewedAt: clock.toISOString() });
+    const again = await reader.reading.read(record.id, { allowCloud: false });
+    expect(again.fields.find((f) => f.field === 'strength' && f.lineIndex === 3)).toMatchObject({ id: strength.id, status: 'user_corrected', value: '75' });
+    expect(again.lines[3]).toMatchObject({ productName: 'Aspirin', ingredients: [{ name: 'aspirin', strength: 75, unit: 'mg' }] });
+    expect(again.fields).toHaveLength(first.fields.length);
+  });
+
+  it('refuses bad decisions without changing anything', async () => {
+    const { record } = await reader.documents.add(IDS.ramesh, await fixture('text-two-pages.pdf', 'application/pdf'), { source: 'upload' });
+    const { fields } = await reader.reading.read(record.id, { allowCloud: false });
+    const other = await reader.documents.add(IDS.ramesh, pdf('other'), { source: 'upload' });
+    expect(await codeOf(reader.documents.reviewFields(record.id, [{ evidenceId: 'nope', action: 'confirm' }]))).toBe('not_found');
+    expect(await codeOf(reader.documents.reviewFields(other.record.id, [{ evidenceId: fields[0].id, action: 'confirm' }]))).toBe('not_found');
+    expect(await codeOf(reader.documents.reviewFields(record.id, [{ evidenceId: fields[0].id, action: 'correct', value: ' ' }]))).toBe('unknown');
+    expect(await reader.documents.fields(record.id)).toEqual(fields);
+    expect(await codeOf(reader.documents.fields('nope'))).toBe('not_found');
+  });
+
+  it('a poor photo without consent: refused, no request, nothing stored', async () => {
+    ocrText = ocrPage('blur', 0.2);
+    const { record } = await reader.documents.add(IDS.ramesh, await fixture('blurry-photo.png', 'image/png'), { source: 'camera' });
+    expect(await codeOf(reader.reading.read(record.id, { allowCloud: false }))).toBe('cloud_consent_required');
+    expect(cloud).not.toHaveBeenCalled();
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(await reader.documents.fields(record.id)).toEqual([]);
+    expect((await reader.documents.get(record.id)).pageCount).toBeNull();
+  });
+
+  it('a photo read on the device is flagged where a photo needs a look', async () => {
+    ocrText = ocrPage('DOLO 650\nParacetamol Tablets IP 650 mg\nEach uncoated tablet contains:\nParacetamol IP 650 mg', 0.93);
+    const { record } = await reader.documents.add(IDS.ramesh, await fixture('blurry-photo.png', 'image/png'), { source: 'camera' });
+    const candidate = await reader.reading.read(record.id, { allowCloud: false });
+    expect(candidate).toMatchObject({ engine: 'on_device', kind: 'other', pageCount: 1, pagesRead: 1 });
+    expect(candidate.fields.find((f) => f.field === 'strength')).toMatchObject({ value: '650', status: 'needs_verification', reasons: [REASONS.fromPhoto], source: 'ocr' });
+    expect(candidate.fields.find((f) => f.field === 'medicine_name')).toMatchObject({ value: 'Dolo 650', status: 'extracted' });
+  });
+
+  it('a scanned PDF records partial page coverage', async () => {
+    const { record } = await reader.documents.add(IDS.ramesh, await fixture('scanned-five-pages.pdf', 'application/pdf'), { source: 'upload' });
+    const candidate = await reader.reading.read(record.id, { allowCloud: false });
+    expect(candidate).toMatchObject({ kind: 'lab_report', title: 'Lipid profile', testNames: ['Lipid profile'], pageCount: 5, pagesRead: 4, clinicalDate: '2026-11-12' });
+    expect(await reader.documents.get(record.id)).toMatchObject({ pageCount: 5, pagesRead: 4 });
+  });
+
+  it('a locked PDF keeps its record and reports locked_pdf', async () => {
+    const { record } = await reader.documents.add(IDS.ramesh, await fixture('locked.pdf', 'application/pdf'), { source: 'upload' });
+    expect(await codeOf(reader.reading.read(record.id, { allowCloud: true }))).toBe('locked_pdf');
+    expect(cloud).not.toHaveBeenCalled();
+    expect(await reader.documents.get(record.id)).toMatchObject({ id: record.id, state: 'pending_review' });
+  });
+
+  it("another patient's name is flagged, never filed on its own", async () => {
+    const { record } = await reader.documents.add(IDS.lakshmi, await fixture('text-two-pages.pdf', 'application/pdf'), { source: 'email' });
+    const candidate = await reader.reading.read(record.id, { allowCloud: false });
+    expect(candidate.patientMatch).toBe('mismatch');
+    expect(candidate.fields.find((f) => f.field === 'patient_name')).toMatchObject({ status: 'needs_verification', reasons: [REASONS.otherPatient] });
+    expect((await reader.documents.get(record.id)).profileId).toBe(IDS.lakshmi);
+  });
+
+  it('an unknown record is not_found', async () => {
+    expect(await codeOf(reader.reading.read('nope', { allowCloud: false }))).toBe('not_found');
   });
 });

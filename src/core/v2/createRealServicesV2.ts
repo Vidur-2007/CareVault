@@ -6,7 +6,10 @@ import type { CareVaultServices } from '../../contract/services';
 import { SAMPLE_DOCUMENT_FILES } from '../../contract/fixtures/sampleCase';
 import {
   ServiceError,
+  type CriticalField,
   type DocumentRecord,
+  type ExtractionCandidate,
+  type FieldEvidence,
   type DuplicateInfo,
   type ID,
   type ISODate,
@@ -19,6 +22,10 @@ import { exportBackupV2, importBackupV2 } from './backup/backup';
 import { byTime, createReposV2, type ReposV2 } from './db/repos';
 import { CareVaultDbV2 } from './db/schema';
 import { loadSampleProfiles } from './db/seed';
+import { defaultReadingDepsV2, readFile, type ReadingDepsV2 } from './reading/read';
+import { classify } from './rules/classify';
+import { matchPatient, readPatientName } from './rules/patient';
+import { applyDecisions, applyEvidence, buildEvidence, mergeEvidence, toExtractedLines } from './rules/verify';
 
 export interface RealServicesV2Options {
   /** Defaults to the app database, 'carevault'. */
@@ -31,6 +38,19 @@ export interface RealServicesV2Options {
   fetch?: typeof fetch;
   /** PBKDF2 iterations for backups. Lower only in tests. */
   backupIterations?: number;
+  /** PDF, OCR and cloud reading. Defaults to the real engines, loaded on first use. */
+  reading?: ReadingDepsV2;
+}
+
+const FIELD_ORDER: readonly CriticalField[] = [
+  'document_date', 'patient_name', 'medicine_name', 'ingredient', 'strength', 'unit', 'frequency', 'instruction',
+];
+
+/** Document-level fields first, then each line in order, its fields in reading order. */
+function evidenceOrder(a: FieldEvidence, b: FieldEvidence): number {
+  return (a.lineIndex ?? -1) - (b.lineIndex ?? -1)
+    || (a.ingredientIndex ?? -1) - (b.ingredientIndex ?? -1)
+    || FIELD_ORDER.indexOf(a.field) - FIELD_ORDER.indexOf(b.field);
 }
 
 const CLOUD_READING_KEY = 'cloudReadingAllowed';
@@ -111,6 +131,7 @@ export function createRealServicesV2(options: RealServicesV2Options = {}): CareV
   const newId = options.newId ?? (() => crypto.randomUUID());
   const fetcher: typeof fetch = options.fetch ?? ((...args) => fetch(...args));
   const nowIso = () => clock().toISOString();
+  const reading = options.reading ?? defaultReadingDepsV2(fetcher);
 
   async function need<T>(row: Promise<T | undefined>, what: string): Promise<T> {
     const found = await row;
@@ -123,6 +144,23 @@ export function createRealServicesV2(options: RealServicesV2Options = {}): CareV
     if (!prescriber || prescriber.profileId !== profileId) throw notFound('doctor');
     return prescriber;
   };
+
+  async function loadFile(id: ID): Promise<DocumentRecord & { blob: Blob }> {
+    const record = await need(repos.documents.get(id), 'record');
+    const stored = await repos.files.get(id);
+    if (stored) return { ...record, blob: stored };
+    // The sample documents ship with the app instead of being stored.
+    const sample = SAMPLE_DOCUMENT_FILES[id];
+    if (!sample) throw new ServiceError('not_found', 'The original file is not stored on this device.');
+    let response: Response;
+    try {
+      response = await fetcher(`/sample-docs/${sample}`);
+    } catch {
+      throw new ServiceError('network', 'The sample document could not be loaded. Check the connection.');
+    }
+    if (!response.ok) throw new ServiceError('not_found', 'The sample document could not be loaded.');
+    return { ...record, blob: new Blob([await response.arrayBuffer()], { type: 'application/pdf' }) };
+  }
 
   const isActiveLink = (link: ShareLink) => !link.revoked && Date.parse(link.expiresAt) > clock().getTime();
 
@@ -253,22 +291,7 @@ export function createRealServicesV2(options: RealServicesV2Options = {}): CareV
         }),
       ),
 
-      file: guarded(async (id) => {
-        const record = await need(repos.documents.get(id), 'record');
-        const stored = await repos.files.get(id);
-        if (stored) return { ...record, blob: stored };
-        // The sample documents ship with the app instead of being stored.
-        const sample = SAMPLE_DOCUMENT_FILES[id];
-        if (!sample) throw new ServiceError('not_found', 'The original file is not stored on this device.');
-        let response: Response;
-        try {
-          response = await fetcher(`/sample-docs/${sample}`);
-        } catch {
-          throw new ServiceError('network', 'The sample document could not be loaded. Check the connection.');
-        }
-        if (!response.ok) throw new ServiceError('not_found', 'The sample document could not be loaded.');
-        return { ...record, blob: new Blob([await response.arrayBuffer()], { type: 'application/pdf' }) };
-      }),
+      file: guarded(loadFile),
 
       fileRecord: guarded(async (id) =>
         repos.transaction(async () => {
@@ -327,11 +350,77 @@ export function createRealServicesV2(options: RealServicesV2Options = {}): CareV
         }),
       ),
 
-      fields: notBuilt,        // TEMPORARY: step 4
-      reviewFields: notBuilt,  // TEMPORARY: step 4
+      fields: guarded(async (id) => {
+        await need(repos.documents.get(id), 'record');
+        return (await repos.fieldEvidence.byDocument(id)).sort(evidenceOrder);
+      }),
+
+      reviewFields: guarded(async (id, decisions) =>
+        repos.transaction(async () => {
+          await need(repos.documents.get(id), 'record');
+          const current = await repos.fieldEvidence.byDocument(id);
+          let next: FieldEvidence[];
+          try {
+            next = applyDecisions(current, decisions, nowIso());
+          } catch (error) {
+            const message = error instanceof Error ? error.message : '';
+            throw message.startsWith('Unknown field') ? new ServiceError('not_found', 'This value is not part of this record.') : new ServiceError('unknown', 'Please enter the corrected value.');
+          }
+          await repos.fieldEvidence.bulkPut(next.filter((e, i) => e !== current[i]));
+          return next.sort(evidenceOrder);
+        }),
+      ),
     },
 
-    reading: { read: notBuilt },                          // TEMPORARY: step 4
+    reading: {
+      read: guarded(async (documentId, opts): Promise<ExtractionCandidate> => {
+        // Reading happens before the transaction: OCR and the network may not run inside one.
+        const file = await loadFile(documentId);
+        const profile = await need(repos.profiles.get(file.profileId), 'profile');
+        const result = await readFile(file.blob, { allowCloud: opts.allowCloud === true }, reading);
+
+        const patientNameRead = readPatientName(result.parsed.text);
+        const patientMatch = matchPatient(patientNameRead, profile.name);
+        const classification = classify(result.parsed.text);
+        const fresh = buildEvidence(
+          { profileId: file.profileId, documentId, source: result.source, parsed: result.parsed, ocrLines: result.ocrLines, patientNameRead, patientMatch },
+          { now: nowIso(), newId },
+        );
+
+        const fields = await repos.transaction(async () => {
+          const doc = await need(repos.documents.get(documentId), 'record');
+          const existing = await repos.fieldEvidence.byDocument(documentId);
+          const merged = mergeEvidence(existing, fresh);
+          const keep = new Set(merged.map((e) => e.id));
+          await repos.fieldEvidence.bulkDelete(existing.filter((e) => !keep.has(e.id)).map((e) => e.id));
+          await repos.fieldEvidence.bulkPut(merged);
+          // Reading stores only what it learned about the file; the record's details are
+          // suggestions in the candidate, for the user to accept with documents.update.
+          await repos.documents.put({ ...doc, pageCount: result.pageCount, pagesRead: result.pagesRead, patientNameRead, patientMatch });
+          return merged.sort(evidenceOrder);
+        });
+
+        return {
+          documentId,
+          kind: result.parsed.kind === 'prescription' ? 'prescription' : classification.kind,
+          title: classification.title,
+          clinicalDate: result.parsed.clinicalDate,
+          prescriberName: result.parsed.prescriberName,
+          facility: classification.facility,
+          patientNameRead,
+          patientMatch,
+          tags: classification.tags,
+          testNames: classification.testNames,
+          lines: applyEvidence(toExtractedLines(result.parsed), fields),
+          fields,
+          engine: result.engine,
+          rawText: result.parsed.text,
+          pageCount: result.pageCount,
+          pagesRead: result.pagesRead,
+          needsCloud: false,
+        };
+      }),
+    },
     prescriptions: { save: notBuilt, lines: notBuilt },   // TEMPORARY: step 6
     routine: {                                            // TEMPORARY: step 6 (totals: step 7)
       list: notBuilt, get: notBuilt, history: notBuilt, profileHistory: notBuilt, revision: notBuilt,

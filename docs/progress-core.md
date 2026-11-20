@@ -345,3 +345,56 @@ Tests: 18 in `createRealServicesV2.test.ts`, replacing the Phase 0 stub test.
 `npm run check`: 38 files, 564 tests, build passing. `eslint .` clean.
 
 Still pending (reject as "not built yet"): `documents.fields` and `documents.reviewFields`, `reading.read` (step 4); `prescriptions`, `routine`, `health` (step 6); `attention`, `records` (step 7); `visits`, `passport`, `sharing` (step 8); `gmail` (step 9).
+
+### Step 4: reading v2 and field evidence
+
+Built, as new v2 modules (the v1 reader is unchanged):
+- **`src/core/v2/reading/parse.ts`:** a parser that works page by page and keeps the literal text of every value it reads. An unclear digit stays as read (`7? mg`, no value); a missing strength stays missing; a bare number with no unit is marked unclear. A `Tab.` line still becomes a medicine line when its name is a known ingredient, even with no readable strength. The v1 helpers for dates, doses, forms and doctor names are reused.
+- **`src/core/v2/reading/pdf.ts`:** every page of a text PDF, the page count, and one page rendered for OCR. A password-protected PDF rejects with `locked_pdf` (pdf.js reports `PasswordException`).
+- **`src/core/v2/reading/ocr.ts`:** Tesseract.js (asks for `blocks` output, which is off by default since v6) and PaddleOCR.js, both returning lines with word confidence (0 to 1) and boxes. Both load on first use. Tesseract.js stays first.
+- **`src/core/v2/reading/read.ts`:**
+  - a text PDF is read from its text layer, every page, with no OCR;
+  - a scanned PDF gets OCR on at most the first 4 pages;
+  - a photo gets OCR.
+
+  When the read is not good enough (under 20 characters, confidence under 0.6, or no known medicine on a prescription or pack), it rejects with `cloud_consent_required` unless cloud reading is allowed. **No request is made without consent.** The cloud client's v1 errors become v2 errors, and a 503 becomes `not_configured`.
+- **`src/core/v2/rules/classify.ts`:** kind, tags, test names (CBC, lipid profile, HbA1c, thyroid, liver, kidney, blood sugar, urine, X-ray, MRI, CT, ultrasound, ECG, echo), facility, specialty and a suggested title.
+- **`src/core/v2/rules/patient.ts`:** reads "Patient:", "Name:" and "Pt." and matches against the profile, ignoring case, titles, order and initials, and allowing one extra name word. A different first name is a mismatch.
+- **`src/core/v2/rules/verify.ts`:** one `FieldEvidence` per critical field, flagged per overview 9.2:
+  - word confidence below 0.80;
+  - an unclear digit;
+  - a missing strength or unit;
+  - not a real date;
+  - another patient's name;
+  - a strength that differs from a **manufacturer-level** reference entry (weaker entries only add a line warning);
+  - a value taken from the reference, or from the cloud;
+  - any strength, unit or frequency read from a photo.
+
+  It also handles decisions (confirm, correct, leave unknown), the merge on re-read (human decisions always kept) and line verification.
+- **Services:** `reading.read(documentId, { allowCloud })`, `documents.fields`, `documents.reviewFields`.
+
+For the UI side:
+- **`reading.read` stores two things:** the field evidence, and on the record only `pageCount`, `pagesRead`, `patientNameRead` and `patientMatch`. Kind, title, date, tags, test names and facility come back in the candidate as suggestions; save them with `documents.update`.
+- **An unreadable strength** appears in `candidate.lines` as strength `0`; its evidence (`raw`, `value: null`, `needs_verification`) is what to show. After a correction, the next read's lines carry the corrected value.
+- **Evidence is ordered:** document-level fields first, then each line, its fields in reading order.
+- **`documents.reviewFields` errors:**
+  - `not_found` for a field that is not part of the record;
+  - `unknown` ("Please enter the corrected value.") for a correction with no value;
+  - nothing is stored on either refusal.
+- **A field left `unknown`** keeps its line unverified. A frequency is only evidenced when a dose was printed, so a pack with no dose does not block adding it.
+- **Note for step 6:** a line is `verified` only when all its fields are confirmed or corrected. Plan: `prescriptions.save` treats the lines the user saves as reviewed, turning their `extracted` fields into `user_confirmed`, but never `needs_verification` or `unknown` ones. That is how the demo's Telmisartan row is unblocked while Aspirin stays blocked, as in fixtures `expected`.
+
+Fixtures (synthetic, in `src/core/v2/reading/fixtures/`, with their HTML sources):
+- a two-page text prescription;
+- a five-page scanned PDF with no text layer;
+- a blurred photo;
+- **a real password-protected PDF.** No PDF tool on this machine could encrypt, so it is built from the PDF reference's RC4 security handler (R2); Poppler's `pdfinfo` refuses it with "Incorrect password".
+
+Tests: 110 for v2 rules, parsing and reading, plus 9 through the services. Branch coverage of `src/core/v2/rules` and `src/core/v2/reading/parse.ts`: **100%** (339 of 339). Bugs found and fixed along the way:
+- the reference check ignored evidence levels;
+- "Pt." with no colon was not read as a patient label;
+- an `Inj.` line was labelled a tablet; it is now `other`, since the contract has no injection form.
+
+`npm run check`: 40 files, 617 tests, build passing. `eslint .` clean.
+
+Not tested here: the two OCR engines themselves and rendering a scanned page, which need a real browser (Node has no canvas, and the engines download models). Tests use the engines' real output shapes with fixed values. The phone benchmark in step 10 runs them for real.
