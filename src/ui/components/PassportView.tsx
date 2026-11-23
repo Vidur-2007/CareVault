@@ -83,9 +83,7 @@ export function PassportView({ passport: p, revision, qr, headingLevel = 1, clas
     >
       <header className="flex items-start justify-between gap-6">
         <div className="min-w-0">
-          <div className="[&_span:first-child]:size-8 [&_span:first-child]:text-[13px] [&_span:last-child]:text-[17px]">
-            <Logo />
-          </div>
+          <Logo small />
           <Title id="passport-title" className="mt-4 text-page-sm md:text-[36px] md:leading-tight print:mt-2 print:text-[20pt]">
             Health passport
           </Title>

@@ -1064,3 +1064,52 @@ Components still typed on v1 (`DocumentCard`, `PassportView`, `MedicineRow`, `Ti
 - **"Not ours: remove it"** in the assign dialog removes the record at once, like the Delete on the record page; the item says whose name was read.
 
 **Open questions:** none new.
+
+### Step 10: accessibility and responsive polish (2026-11-23)
+
+**How it was checked.**
+- **axe-core 4.10.2** was installed in a scratch folder (not in `package.json`) and injected into the page through the DevTools protocol, in headless Edge, against the dev build with `VITE_USE_MOCK=true`.
+- **What it covered** (22 page states, at 1280 px and at 390 px as a phone, so 44 checks):
+  - every v2 route: Home, Records (grid and timeline), Add a record, three record pages (a lab report, a prescription, the demo prescription with its flagged value), Check the values, Review changes, Passport, a medicine, a snapshot, Print, Ask (an answer and "not understood"), Settings, Welcome, Not found, and the share page (open, and without its key);
+  - two dialog states: the share dialog and the Edit profile sheet.
+  - The script navigates inside the app, so the snapshot, the share link and the uploaded prescription made at the start stay in the mock.
+- **At 390 px, also checked:**
+  - horizontal scroll (page scroll width, and any element past the right edge);
+  - one `h1` per page;
+  - tap targets under 44 px.
+  - The tap-target check measures what a finger hits: the label of a visually hidden or bare input, the whole card for a stretched link, and the row for a stretched checkbox label. Links and buttons inside a sentence are exempt, as in WCAG 2.5.8.
+
+**Before** (44 checks): 12 serious and 5 moderate axe nodes, no horizontal scroll, and small tap targets on most pages.
+- **Serious, color-contrast:** the unselected options of the segmented control (Records "Sort" and "View", the share expiry) were grey text on the grey track at 4.38:1. This is the v1 "unselected filter chips" finding; the Records filter chips themselves were already at text-ink-2.
+- **Moderate, heading-order** (v1 finding): the record cards on Records are `h3` directly under the page's `h1`.
+- **Moderate, region** (v1 finding): the share page's logo and top line were outside any landmark, in the open, missing-key and error states.
+- **Small tap targets at 390 px:**
+  - the logo link in the phone bar (36 px);
+  - "All records" on Home (19 px);
+  - the record links in the Timeline (20 px);
+  - the medicine links under "Current use not confirmed" (24 px);
+  - the source-record and "Replaced by" links on the medicine detail (20 px);
+  - checkboxes whose only target was the 24 px box and the label text;
+  - the skip link when focused.
+  - The first run of the script also listed text fields (measured by their caption), visually hidden file inputs and stretched card links; those were the script's mistakes, not the app's, and were corrected in the script.
+
+**Fixes.**
+- **`SegmentedControl`:** unselected options use text-ink-2, which passes on the grey track.
+- **Records:** a visually hidden `h2` ("6 records") above the grid, so the cards' `h3` follow in order.
+- **Share page:** the logo and the top line are in a `header`, and the loading state's content in `main`, so nothing is outside a landmark.
+- **Squashed logo on the passport header** (v1 finding): `PassportView` shrank the logo with `[&_span:first-child]:size-8`, which also matched the logo's outer span and forced the whole logo into a 32 px square. `Logo` now has a `small` size with a fixed square mark, and the passport uses it.
+- **Keyboard access to the PDF preview** (v1 finding): already fixed in step 3 (the scroll area has `tabindex="0"`, `role="region"` and a label); checked again here.
+- **Tap targets:**
+  - those links are now at least 44 px tall (`inline-flex min-h-11 items-center`);
+  - the skip link is 44 px when focused;
+  - `Checkbox` stretches its label over the whole row (at least 48 px), so a tap anywhere on the row toggles it. Its accessible name is unchanged.
+
+**After** (44 checks): no axe findings at any impact, not only serious and critical. No horizontal scroll at 390 px, no tap target under 44 px, and exactly one `h1` on every page.
+
+**Tests.**
+- `npm run check` passes: 35 test files, 555 tests, build OK, three runs in a row. Lint is clean.
+- **Test limits raised for the UI tests:** with 35 jsdom files in parallel on this machine, the first test of a file (which loads the lazy screens) sometimes needed more than Vitest's 5 s, and a `findBy` more than 4 s. Failures moved between files from run to run. `src/ui/test/configureTesting.ts` now sets 8 s for `findBy` and 20 s per test, for the UI tests only (the frozen global setup and `vite.config.ts` are unchanged).
+
+**Not changed:** the inline example links in Ask's "not understood" hint stay inline in the sentence (WCAG 2.5.8 exception).
+
+**Open questions:** none new.

@@ -92,7 +92,7 @@ export function MedicinesSection({ profile, routine, visit, prescribers }: Medic
               <li key={m.id} className="flex flex-col gap-3 rounded-card-sm border border-line bg-surface p-[18px] md:flex-row md:items-center md:justify-between md:p-5">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link to={`/passport/medicines/${m.id}`} className="font-semibold text-ink hover:underline">{m.productName}</Link>
+                    <Link to={`/passport/medicines/${m.id}`} className="inline-flex min-h-11 items-center font-semibold text-ink hover:underline">{m.productName}</Link>
                     <Pill spec={statusPill(m)} />
                   </div>
                   <p className="mt-1 text-secondary text-ink-2">{ingredientsText(m)} · {howTaken(m)}</p>

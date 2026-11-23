@@ -37,7 +37,7 @@ export function AppShell() {
       <a
         href="#main"
         data-print-hide
-        className="sr-only z-50 rounded-button bg-teal px-4 py-3 font-semibold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+        className="sr-only z-50 rounded-button bg-teal px-4 py-3 font-semibold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:inline-flex focus:min-h-11 focus:items-center"
       >
         Skip to content
       </a>
@@ -55,7 +55,7 @@ export function AppShell() {
             } />
         </div>
         <div className="flex h-[72px] items-center justify-between border-b border-line bg-surface px-5 md:hidden">
-          <Link to="/" className="rounded-button">
+          <Link to="/" className="inline-flex min-h-11 items-center rounded-button">
             <Logo />
           </Link>
           {loading ? <Skeleton className="h-12 w-28 rounded-full" /> : switcher(true)}

@@ -37,7 +37,7 @@ export function TimelineItem({ date, title, detail, type, icon, to, last = false
       </span>
       <div className="min-w-0 flex-1 pt-1">
         <p className="text-secondary text-ink-3">{date}</p>
-        <p className={cx('font-semibold text-ink')}>{to ? <Link to={to} className="hover:underline">{title}</Link> : title}</p>
+        <p className={cx('font-semibold text-ink')}>{to ? <Link to={to} className="inline-flex min-h-11 items-center hover:underline">{title}</Link> : title}</p>
         {detail && <p className="mt-0.5 text-secondary text-ink-2">{detail}</p>}
       </div>
     </li>

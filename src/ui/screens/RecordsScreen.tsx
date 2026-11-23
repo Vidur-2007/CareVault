@@ -280,6 +280,9 @@ export function RecordsScreen() {
             Try another word, or fewer filters.
           </EmptyState>
         ) : view === 'grid' ? (
+          <>
+          {/* The cards' titles are h3: this keeps the heading order (v1 finding). */}
+          <h2 className="sr-only">{hits.length === 1 ? '1 record' : `${hits.length} records`}</h2>
           <ul aria-label="Records" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 md:gap-5">
             {hits.map((hit) => (
               <li key={hit.document.id} className="flex">
@@ -294,6 +297,7 @@ export function RecordsScreen() {
               </li>
             ))}
           </ul>
+          </>
         ) : (
           <div aria-label="Records by month" role="region" className="flex flex-col gap-8">
             {timeline.map((group) => (

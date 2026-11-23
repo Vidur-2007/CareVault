@@ -102,9 +102,9 @@ export function MedicineDetailScreen() {
     ['Doses a day', m.dosesPerDay === null ? 'Not entered' : String(m.dosesPerDay)],
     ['Source', sourceLabel(m, profile!)],
     ['Doctor', prescriber ? [prescriber.name, prescriber.specialty].filter(Boolean).join(', ') : 'No doctor'],
-    ['Source record', !m.sourceDocumentId ? 'None' : sourceGone ? 'The source record was removed' : sourceDoc.data ? <Link to={`/records/${m.sourceDocumentId}`} className="font-semibold text-teal underline underline-offset-4">{sourceDoc.data.title}{sourceDoc.data.clinicalDate ? `, ${formatDate(sourceDoc.data.clinicalDate)}` : ''}</Link> : '…'],
+    ['Source record', !m.sourceDocumentId ? 'None' : sourceGone ? 'The source record was removed' : sourceDoc.data ? <Link to={`/records/${m.sourceDocumentId}`} className="inline-flex min-h-11 items-center font-semibold text-teal underline underline-offset-4">{sourceDoc.data.title}{sourceDoc.data.clinicalDate ? `, ${formatDate(sourceDoc.data.clinicalDate)}` : ''}</Link> : '…'],
     ['Last confirmed', lastConfirmedText(m).replace('Last confirmed ', '')],
-    ...(m.replacedByMedicineId ? [['Replaced by', replacement.data ? <Link to={`/passport/medicines/${m.replacedByMedicineId}`} className="font-semibold text-teal underline underline-offset-4">{replacement.data.productName}</Link> : 'A newer entry'] as [string, ReactNode]] : []),
+    ...(m.replacedByMedicineId ? [['Replaced by', replacement.data ? <Link to={`/passport/medicines/${m.replacedByMedicineId}`} className="inline-flex min-h-11 items-center font-semibold text-teal underline underline-offset-4">{replacement.data.productName}</Link> : 'A newer entry'] as [string, ReactNode]] : []),
   ];
 
   return (

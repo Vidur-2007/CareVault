@@ -22,7 +22,7 @@ function Frame({ children }: { children: ReactNode }) {
 function StateMessage({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
     <Frame>
-      <Logo />
+      <header><Logo /></header>
       <main className="mt-10 rounded-card border border-line bg-surface p-7 shadow-card md:p-10">
         <div className="flex size-14 items-center justify-center rounded-full bg-grey-tint text-ink-2 [&_svg]:size-7">{icon}</div>
         <h1 className="mt-5 text-page-sm md:text-[36px]">{title}</h1>
@@ -51,12 +51,14 @@ export function ShareScreen() {
   if (shared.loading) {
     return (
       <Frame>
-        <Logo />
-        <h1 className="mt-8 text-page-sm">Shared passport</h1>
-        <div className="mt-4" role="status" aria-label="Opening the passport">
-          <p className="mb-4 text-ink-2">Opening and decrypting the passport…</p>
-          <SkeletonList count={3} />
-        </div>
+        <header><Logo /></header>
+        <main>
+          <h1 className="mt-8 text-page-sm">Shared passport</h1>
+          <div className="mt-4" role="status" aria-label="Opening the passport">
+            <p className="mb-4 text-ink-2">Opening and decrypting the passport…</p>
+            <SkeletonList count={3} />
+          </div>
+        </main>
       </Frame>
     );
   }
@@ -96,13 +98,13 @@ export function ShareScreen() {
 
   return (
     <Frame>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden">
+      <header className="mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden">
         <p className="flex items-center gap-2 text-secondary text-ink-3">
           <Lock aria-hidden className="size-4" />
           Shared passport · read-only{s.revision ? ` · passport ${s.revision}` : ''}
         </p>
         <Button variant="secondary" size="sm" icon={<Printer aria-hidden className="size-4" />} onClick={() => window.print()}>Print</Button>
-      </div>
+      </header>
       <main>
         <PassportView passport={s.passport} revision={s.revision} />
       </main>

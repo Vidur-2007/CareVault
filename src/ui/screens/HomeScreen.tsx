@@ -105,7 +105,7 @@ export function HomeScreen() {
             <SectionHeader
               id="recent-records-title"
               title="Recently added"
-              aside={<Link to="/records" className="font-semibold text-teal hover:text-teal-ink">All records</Link>}
+              aside={<Link to="/records" className="inline-flex min-h-11 items-center font-semibold text-teal hover:text-teal-ink">All records</Link>}
             />
             {documents.loading ? (
               <SkeletonList count={2} lines={1} label="Loading recent records" />
