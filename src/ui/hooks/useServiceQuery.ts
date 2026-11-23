@@ -2,11 +2,11 @@
 // and re-runs when services.subscribe() fires.
 //
 //   const { data: items, loading, error } = useServiceQuery(
-//     (s) => s.review.listOpen(profileId), [profileId]);
+//     (s) => s.attention.list(profileId), [profileId]);
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DependencyList } from 'react';
-import type { CareVaultServices } from '../../contract/legacy/services';
-import type { ServiceError } from '../../contract/legacy/types';
+import type { CareVaultServices } from '../../contract/services';
+import type { ServiceError } from '../../contract/types';
 import { useServices } from './useContexts';
 import { toServiceError } from './toServiceError';
 

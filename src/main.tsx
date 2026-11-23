@@ -8,6 +8,7 @@ import './ui/styles/index.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
+// The v2 app: contract v2 through createServicesV2() (src/ui/app/providers/ServicesProvider.tsx).
 import { App } from './ui/app/App';
 
 registerSW({ immediate: true });

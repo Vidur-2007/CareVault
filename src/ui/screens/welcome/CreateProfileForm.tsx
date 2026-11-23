@@ -1,39 +1,44 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import type { Profile } from '../../../contract/legacy/types';
+import type { Profile } from '../../../contract/types';
 import { Button } from '../../components/Button';
+import { Checkbox } from '../../components/Checkbox';
 import { Field } from '../../components/Field';
 import { useServiceAction } from '../../hooks/useServiceAction';
-import { EMPTY_PROFILE_FORM, PROFILE_FIELD_ORDER, validateProfile } from './validateProfile';
-import type { ProfileFormErrors, ProfileFormValues } from './validateProfile';
+import { EMPTY_PROFILE_FORM, PROFILE_FIELD_ORDER, validateProfile, valuesFromProfile } from './validateProfile';
+import type { NewProfile, ProfileFormErrors, ProfileFormValues } from './validateProfile';
 
-const fieldId = (key: keyof ProfileFormValues) => `profile-${key}`;
+type TextField = Exclude<keyof ProfileFormValues, 'selfManaged'>;
+const fieldId = (key: TextField) => `profile-${key}`;
 
 export interface CreateProfileFormProps {
+  /** Called with the profile created, or saved when editing. */
   onCreated: (profile: Profile) => void;
   onCancel?: () => void;
+  /** Edit this profile instead of creating one (Settings, UI spec 4.13). */
+  editing?: Profile;
 }
 
-/** Create-profile form (UI spec 7.1). Errors appear on submit, then update as the user types. */
-export function CreateProfileForm({ onCreated, onCancel }: CreateProfileFormProps) {
-  const [values, setValues] = useState<ProfileFormValues>(EMPTY_PROFILE_FORM);
+/** Create-profile form (UI spec 4.1), also used to edit a profile. Errors appear on submit, then update as the user types. */
+export function CreateProfileForm({ onCreated, onCancel, editing }: CreateProfileFormProps) {
+  const [values, setValues] = useState<ProfileFormValues>(() => (editing ? valuesFromProfile(editing) : EMPTY_PROFILE_FORM));
   const [errors, setErrors] = useState<ProfileFormErrors>({});
   const [submitted, setSubmitted] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
-  const create = useServiceAction((s, input: Omit<Profile, 'id' | 'createdAt'>) => s.profiles.create(input), {
-    errorPrefix: 'The profile could not be created',
+  const create = useServiceAction((s, input: NewProfile) => (editing ? s.profiles.update(editing.id, input) : s.profiles.create(input)), {
+    errorPrefix: editing ? 'The profile could not be saved' : 'The profile could not be created',
   });
   const currentYear = new Date().getFullYear();
+  const self = values.selfManaged;
 
   useEffect(() => {
     document.getElementById(fieldId('name'))?.focus();
   }, []);
 
-  const set = (key: keyof ProfileFormValues) => (e: { target: { value: string } }) => {
-    const next = { ...values, [key]: e.target.value };
+  const update = (next: ProfileFormValues) => {
     setValues(next);
     if (submitted) setErrors(validateProfile(next, currentYear).errors);
   };
+  const set = (key: TextField) => (e: { target: { value: string } }) => update({ ...values, [key]: e.target.value });
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -50,26 +55,41 @@ export function CreateProfileForm({ onCreated, onCancel }: CreateProfileFormProp
   };
 
   return (
-    <form ref={formRef} noValidate onSubmit={onSubmit} aria-labelledby="create-profile-title" className="flex flex-col gap-5">
+    <form noValidate onSubmit={onSubmit} aria-labelledby="create-profile-title" className="flex flex-col gap-5">
       <h2 id="create-profile-title" className="text-card-sm md:text-card">
-        Create a profile
+        {editing ? `Edit ${editing.name}` : 'Create a profile'}
       </h2>
+      <Checkbox
+        label="I manage my own records"
+        description="For your own medicines and records. The caregiver details are left out."
+        checked={self}
+        onChange={(e) => update({ ...values, selfManaged: e.target.checked })}
+      />
       <fieldset className="flex flex-col gap-5">
-        <legend className="mb-1 font-semibold text-ink-3">The person you care for</legend>
-        <Field id={fieldId('name')} label="Name" autoComplete="off" value={values.name} onChange={set('name')} error={errors.name} />
+        <legend className="mb-1 font-semibold text-ink-3">{self ? 'You' : 'The person you care for'}</legend>
         <Field
-          id={fieldId('relation')}
-          label="Relation to you"
-          hint="For example: Father"
-          autoComplete="off"
-          value={values.relation}
-          onChange={set('relation')}
-          error={errors.relation}
+          id={fieldId('name')}
+          label={self ? 'Your name' : 'Name'}
+          autoComplete={self ? 'name' : 'off'}
+          value={values.name}
+          onChange={set('name')}
+          error={errors.name}
         />
+        {!self && (
+          <Field
+            id={fieldId('relation')}
+            label="Relation to you"
+            hint="For example: Father"
+            autoComplete="off"
+            value={values.relation}
+            onChange={set('relation')}
+            error={errors.relation}
+          />
+        )}
         <Field
           id={fieldId('birthYear')}
           label="Birth year (optional)"
-          hint="Used to show the age on the visit passport."
+          hint="Used to show the age on the passport."
           inputMode="numeric"
           maxLength={4}
           autoComplete="off"
@@ -77,28 +97,39 @@ export function CreateProfileForm({ onCreated, onCancel }: CreateProfileFormProp
           onChange={set('birthYear')}
           error={errors.birthYear}
         />
-      </fieldset>
-      <fieldset className="flex flex-col gap-5">
-        <legend className="mb-1 font-semibold text-ink-3">You, the caregiver</legend>
         <Field
-          id={fieldId('caregiverName')}
-          label="Your name"
-          hint='Shown as "Prepared by" on the visit passport.'
-          autoComplete="name"
-          value={values.caregiverName}
-          onChange={set('caregiverName')}
-          error={errors.caregiverName}
-        />
-        <Field
-          id={fieldId('caregiverRelation')}
-          label="Your relation to them"
-          hint="For example: daughter"
+          id={fieldId('emergencyContact')}
+          label="Emergency contact (optional)"
+          hint="A name and phone number, for example: Anjali Iyer, +91 90000 00000. Shown on the passport."
           autoComplete="off"
-          value={values.caregiverRelation}
-          onChange={set('caregiverRelation')}
-          error={errors.caregiverRelation}
+          value={values.emergencyContact}
+          onChange={set('emergencyContact')}
+          error={errors.emergencyContact}
         />
       </fieldset>
+      {!self && (
+        <fieldset className="flex flex-col gap-5">
+          <legend className="mb-1 font-semibold text-ink-3">You, the caregiver</legend>
+          <Field
+            id={fieldId('caregiverName')}
+            label="Your name"
+            hint='Shown as "Prepared by" on the passport.'
+            autoComplete="name"
+            value={values.caregiverName}
+            onChange={set('caregiverName')}
+            error={errors.caregiverName}
+          />
+          <Field
+            id={fieldId('caregiverRelation')}
+            label="Your relation to them"
+            hint="For example: daughter"
+            autoComplete="off"
+            value={values.caregiverRelation}
+            onChange={set('caregiverRelation')}
+            error={errors.caregiverRelation}
+          />
+        </fieldset>
+      )}
       <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
         {onCancel && (
           <Button variant="secondary" onClick={onCancel} disabled={create.pending}>
@@ -106,7 +137,7 @@ export function CreateProfileForm({ onCreated, onCancel }: CreateProfileFormProp
           </Button>
         )}
         <Button type="submit" loading={create.pending}>
-          Create profile
+          {editing ? 'Save the changes' : 'Create profile'}
         </Button>
       </div>
     </form>

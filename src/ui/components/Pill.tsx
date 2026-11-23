@@ -9,6 +9,7 @@ const TONE: Record<PillTone, string> = {
   red: 'bg-red-tint text-red-ink',
   grey: 'bg-grey-tint text-grey-ink',
   check: 'border border-amber-ink/60 bg-transparent text-amber-ink',
+  outline: 'border border-grey-ink/50 bg-transparent text-grey-ink',
 };
 
 export interface PillProps {

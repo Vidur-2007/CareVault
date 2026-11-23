@@ -1,4 +1,4 @@
-// Document preview (UI spec 7.7): PDF pages rendered with pdf.js, or the image, with page
+// Document preview (UI spec 4.5): PDF pages rendered with pdf.js, or the image, with page
 // navigation and zoom. Only the zoomed content scrolls sideways.
 import { ChevronLeft, ChevronRight, Download, FileWarning, Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -29,10 +29,14 @@ export interface DocumentPreviewProps {
   title: string;
   /** Shown when the file cannot be loaded. */
   error?: string | null;
+  /** "Show on the original": a new object jumps to that page. */
+  jumpTo?: { page: number } | null;
+  /** Shorter on phones, so the values to check start on the first screen. */
+  compact?: boolean;
 }
 
 /** Remount per file (key={documentId}) so page, zoom and loading state start fresh. */
-export function DocumentPreview({ file, title, error }: DocumentPreviewProps) {
+export function DocumentPreview({ file, title, error, jumpTo, compact = false }: DocumentPreviewProps) {
   const [zoomIndex, setZoomIndex] = useState(2);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
@@ -46,10 +50,21 @@ export function DocumentPreview({ file, title, error }: DocumentPreviewProps) {
   const unsupported = isPdf && !canRenderPdf();
   const download = useRef<HTMLAnchorElement>(null);
   const shown = unsupported ? 'failed' : status;
+  const figure = useRef<HTMLElement>(null);
+
+  // Jump to a page when asked, and bring the original into view.
+  const [jumped, setJumped] = useState<typeof jumpTo>(null);
+  if (jumpTo && jumpTo !== jumped) {
+    setJumped(jumpTo);
+    setPage(Math.max(1, pdf ? Math.min(jumpTo.page, pages) : jumpTo.page));
+  }
+  useEffect(() => {
+    if (jumpTo) figure.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  }, [jumpTo]);
 
   // A download link, so the original is always reachable even when it cannot be previewed.
   useEffect(() => {
-    if (!file || !download.current) return;
+    if (!file || !download.current || typeof URL.createObjectURL !== 'function') return;
     const url = URL.createObjectURL(file);
     download.current.href = url;
     return () => URL.revokeObjectURL(url);
@@ -69,7 +84,7 @@ export function DocumentPreview({ file, title, error }: DocumentPreviewProps) {
         opened = doc;
         setPdf(doc);
         setPages(doc.numPages);
-        setPage(1);
+        setPage((p) => Math.min(Math.max(1, p), doc.numPages));
       })
       .catch(() => !cancelled && setStatus('failed'));
     return () => {
@@ -81,19 +96,18 @@ export function DocumentPreview({ file, title, error }: DocumentPreviewProps) {
   // Render the current page whenever page or zoom changes.
   useEffect(() => {
     if (!pdf || !canvas.current) return;
-    let cancelled = false;
+    const abort = new AbortController();
     const width = Math.max(240, (viewport.current?.clientWidth ?? 600) - 32);
-    renderPdfPage(pdf, page, canvas.current, width, zoom)
-      .then(() => !cancelled && setStatus('ready'))
-      .catch(() => !cancelled && setStatus('failed'));
-    return () => {
-      cancelled = true;
-    };
+    renderPdfPage(pdf, page, canvas.current, width, zoom, abort.signal)
+      .then(() => !abort.signal.aborted && setStatus('ready'))
+      .catch(() => !abort.signal.aborted && setStatus('failed'));
+    // A newer page, zoom or document cancels this render, so the canvas is free for the next one.
+    return () => abort.abort();
   }, [pdf, page, zoom]);
 
   // Images: the object URL lives exactly as long as the image.
   useEffect(() => {
-    if (!file || isPdf || !img.current) return;
+    if (!file || isPdf || !img.current || typeof URL.createObjectURL !== 'function') return;
     const url = URL.createObjectURL(file);
     img.current.src = url;
     return () => URL.revokeObjectURL(url);
@@ -109,7 +123,7 @@ export function DocumentPreview({ file, title, error }: DocumentPreviewProps) {
   }
 
   return (
-    <figure className="overflow-hidden rounded-panel border border-line bg-surface">
+    <figure ref={figure} className="overflow-hidden rounded-panel border border-line bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface-muted px-3 py-2">
         {isPdf ? (
           <div className="flex items-center gap-2">
@@ -154,7 +168,8 @@ export function DocumentPreview({ file, title, error }: DocumentPreviewProps) {
         </div>
       </div>
 
-      <div ref={viewport} className="max-h-[75dvh] min-h-64 overflow-auto bg-grey-tint p-4">
+      {/* Focusable so the zoomed page can be scrolled with the keyboard. */}
+      <div ref={viewport} tabIndex={0} role="region" aria-label={`${title}, preview`} className={`${compact ? 'max-h-[45dvh] min-h-48 md:max-h-[75dvh]' : 'max-h-[75dvh] min-h-64'} overflow-auto bg-grey-tint p-4 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-teal/40`}>
         {!file ? (
           <div role="status" aria-label="Loading the document">
             <Skeleton className="mx-auto aspect-[3/4] w-full max-w-xl" />
