@@ -1113,3 +1113,46 @@ Components still typed on v1 (`DocumentCard`, `PassportView`, `MedicineRow`, `Ti
 **Not changed:** the inline example links in Ask's "not understood" hint stay inline in the sentence (WCAG 2.5.8 exception).
 
 **Open questions:** none new.
+
+### Step 11: ready for the merge checkpoint (2026-11-23)
+
+**README.md** is rewritten for v2:
+- what CareVault v2 is and does;
+- the first release story, step by step, with the exact values to expect;
+- the screens, with the new screenshots;
+- privacy (the three ways data leaves the device);
+- how to run it with the mock or the real services;
+- the sample data (both profiles), the stack and the layout.
+
+**Screenshots:** `docs/screenshots/` now holds every v2 screen at 1280 px and 390 px, 17 screens and 34 PNGs (2.7 MB), taken with the mock in headless Edge:
+- Welcome, Home;
+- Records (grid, timeline, search), a record, Add a record, Check the values (the "7? mg" Aspirin strength beside the original), Review changes (with a blocked Aspirin row);
+- Passport, a medicine, the share dialog, a snapshot, Print (with the QR of its link), the shared page;
+- Ask, Settings.
+
+The seven v1 screenshots of retired screens (Review home, Medicines, Visit) are removed.
+
+**The first release story, walked against the mock on a 390 px screen** (scripted through the DevTools protocol in headless Edge; 26 of 26 checks passed, no page errors):
+1. **The demo prescription is saved.** The original is saved first and read, and the Aspirin strength is flagged as "7? mg" with "Unclear digit".
+2. **The value is corrected.** It is corrected to 75 mg in Check the values; the prescription then reads "Aspirin 75 mg", is saved, and the review is offered.
+3. **One medicine is updated.**
+   - The review has one card per asked row (Telmisartan, Aspirin, Atorvastatin).
+   - "Yes, he has started 80 mg" for Telmisartan and Skip for the other two gives "Telmisartan updated to 80 mg. Aspirin unchanged. Atorvastatin unchanged."
+   - The passport takes Telmisartan 80 mg and no longer 40 mg. Aspirin is not added; Atorvastatin is still "not confirmed".
+   - Nothing about the skipped questions appears on Home.
+4. **The latest lipid profile is found.** Records search "lipid profile" (newest first) lists Lipid profile first. Ask "latest lipid profile" answers "Latest report with Lipid profile: 12 Nov 2026, Lakeside Diagnostics."
+5. **Print and QR match.** Share with QR, then "Print with this QR code". The print dialog opens, and the printed QR is the link just made. The link opens the same snapshot (same patient, "Passport 1 · prepared 14 Nov 2026"), whose text is exactly the printed passport's (the QR slot aside).
+6. **Nothing breaks it:**
+   - a backup is saved;
+   - Lakshmi's passport and print carry none of Ramesh's data and no QR, and Ramesh's snapshot is "not found" for her;
+   - after marking Dolo 650 as stopped, the live passport changes and the snapshot reads exactly as before;
+   - after restoring the backup, the snapshot and its QR link read exactly as before, and the routine is as it was at the backup.
+
+**The merge:** `main` was merged into `feature/ui`. It had nothing new, since `feature/core` is not merged yet; laptop A merges after this pull request (overview section 13). `npm run check` passes.
+
+**Not tested here** (also listed in the pull request):
+- the real services (`VITE_USE_MOCK=false`): the UI was built and walked against the mock only; the walk against the real services is the checkpoint's step 3 on `integration-v2`;
+- the demo prescription PDF comes from `feature/core` (laptop A). It is not on this branch, so the walk used a copy taken from that branch;
+- Gmail against a real account, the cloud reader, and the share server;
+- printing on paper (the print layout was checked as an A4 PDF in step 7);
+- a phone with a real camera, and screen readers (the checks were axe and the keyboard).
