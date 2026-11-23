@@ -329,3 +329,58 @@ Not fixed in the UI (requests in `docs/contract-requests-ui.md`):
 4. **Not checked here:** real Gmail sign-in, real Supabase sharing across two devices, real Gemini reading, and a mid-range phone. These need the keys and a phone (checklist in `progress-core.md`).
 
 Tests: 163 on `feat/ui`. On the trial merge, 485 pass; only the build step fails (#3).
+
+---
+
+## v2
+
+### Step 0: review of contract v2 (2026-11-23)
+
+**Branch.** `feature/ui` was created from `main` at `026a605` ("chore: contract v2 and fixtures") and pushed with upstream tracking. `npm run check` passes on it: 35 test files, 508 tests, build OK.
+
+**Contract against overview §8.** Compared mechanically: each code block of §8.1–8.3 was extracted and diffed with the file.
+- `src/contract/types.ts`, `services.ts` and `today.ts` are identical to §8.1, §8.2 and §8.3. The only addition is a 4-line "FROZEN after Phase 0" header comment in each.
+
+**Fixtures against overview §10.** `src/contract/fixtures/sampleCase.ts` agrees with §10:
+- **Ramesh:** profile with emergency contact; Dr. Rao and Dr. Menon; the six documents with their kinds, clinical dates and sources. The HbA1c report is `pending_review`, undated, with `receivedAt` 2026-11-12T20:05+05:30 and patient `match`.
+- **Routine:** all nine entries with the statuses, sources, prescribers, last-confirmed dates and doses per day of the table. Amlodipine 5 mg is replaced by Amlodipine 10 mg; Atorvastatin is `uncertain`.
+- **Health entries:** Sulfa allergy; high blood pressure; type 2 diabetes.
+- **Next visit:** 18 Nov 10:30 with Dr. Rao, with both questions and the two shared reports.
+- **Lakshmi:** Dr. Khan; the thyroid profile of 2026-10-02; Levothyroxine 50 mcg `taking`; the explicit "No known allergies"; no visit.
+- **`expected`:**
+  - the passport order (Rao group alphabetical, then Menon, then no prescriber: "Crocin Advance 500" before "Dolo 650");
+  - 3450 mg = 1950 + 1500;
+  - attention kinds;
+  - newest-first document order with HbA1c last;
+  - the three searches and three Ask questions;
+  - the demo prescription's five rows, `passiveNotMentionedCount: 3`, the three decisions and the state after them.
+- **Not stated in §10, and fine:** Lakshmi's emergency contact (the fixture uses Anjali's number), and Aspirin's instruction "1 tablet, afternoon" (from 0-1-0).
+
+**Side-by-side setup (§6).**
+- `src/services/index.ts` exports `services` (v1) and the factory `createServicesV2()`, with the export names `createMockServicesV2` and `createRealServicesV2` as the spec requires.
+- Importing it builds the v1 services, but v1's `createRealServices()` only constructs its Dexie object and Dexie opens lazily. So the v2 app does not open the v1 database. Checked; noted for laptop A.
+
+**The compatibility mock** (`src/ui/mock/v2/createMockServicesV2.ts`) is what UI step 1 replaces. Its `TEMPORARY` gaps:
+- reading returns an empty candidate, with no field evidence and no "7? mg";
+- the hash is fake (`mock-<size>-<type>`), so duplicates are not real;
+- `prescriptions.save` returns no proposal;
+- `routine.undo`, `decide` and `dismiss` are not built;
+- `routine.revision` is always 0;
+- `setStatus` records no event;
+- `documents.remove` returns no snapshots or shares;
+- `records.ask` is not built;
+- `attention.list` covers only duplicates;
+- `recentChanges` is empty, and the passport's current-medicine order is not the spec's;
+- Gmail and backup are not built;
+- there is no delay and no `cvMockFail` switch.
+
+**Raised in `docs/contract-requests-ui.md` (v2 section).** Nothing in `src/contract`, `src/core` or `src/services` was changed.
+1. **v2-1 (needs an answer before steps 4 and 6):** the format of `FieldEvidence.value` per field, and whether `prescriptions.save` / `routine.add` take critical values from the verified evidence or from the `lines` passed in. This is where the "no unverified value reaches the routine" gate is enforced, so it should be defined once.
+2. **v2-2 (blocks one action in step 4):** "Retake the photo, keeping all decisions" has no method. Proposed: `documents.replaceOriginal(id, file)`, keeping the earlier original. Until it is decided, the default is to leave the action out.
+3. **v2-3:** no `DocumentKind` for medicine packs. Proposed: add `medicine_pack`. Until then, the UI treats "`other` with exactly one medicine line" as a pack.
+4. **v2-4 (clarification):** whether setting the date by hand (`documents.update`) or assigning the profile marks the matching field evidence as corrected or confirmed. Otherwise "Needs attention" may never clear.
+5. **v2-5 (minor):** a fixed vocabulary for `RecordHit.matchedOn`.
+- **v1 request #2** (precaching the pdf.js worker) is still open. **#1** (add a prescriber) and **#5** (error wording) are resolved by v2.
+- **Note:** the demo prescription PDF (`rx-rao-2026-11-13.pdf`) and Lakshmi's thyroid PDF are not in `public/sample-docs/` yet (laptop A).
+
+**Working rule noted.** Overview §2 says commits, pull requests and files carry no assistant attribution. From this step on, commit messages are only `ui: <what>`.
