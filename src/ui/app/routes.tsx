@@ -31,7 +31,6 @@ export interface PlannedRoute {
  */
 export const PLANNED_ROUTES: PlannedRoute[] = [
   { path: '/', title: 'Home', step: 9 },
-  { path: '/records/:id/review', title: 'Review changes', step: 6 },
   { path: '/passport/snapshots/:id', title: 'Passport snapshot', step: 7 },
   { path: '/passport/print/:snapshotId', title: 'Print the passport', step: 7 },
   { path: '/ask', title: 'Ask', step: 8 },
@@ -48,6 +47,7 @@ export const routes: RouteObject[] = [
       { path: '/records', element: screen(() => import('../screens/RecordsScreen'), (m) => m.RecordsScreen) },
       { path: '/records/add', element: screen(() => import('../screens/AddRecordScreen'), (m) => m.AddRecordScreen) },
       { path: '/records/:id/verify', element: screen(() => import('../screens/VerifyScreen'), (m) => m.VerifyScreen) },
+      { path: '/records/:id/review', element: screen(() => import('../screens/ReviewChangesScreen'), (m) => m.ReviewChangesScreen) },
       { path: '/passport', element: screen(() => import('../screens/PassportScreen'), (m) => m.PassportScreen) },
       { path: '/passport/medicines/:id', element: screen(() => import('../screens/MedicineDetailScreen'), (m) => m.MedicineDetailScreen) },
       { path: '/records/:id', element: screen(() => import('../screens/RecordDetailScreen'), (m) => m.RecordDetailScreen) },

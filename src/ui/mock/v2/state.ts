@@ -10,6 +10,8 @@ export interface StoredProposal {
   overrides: Record<number, T.ID | 'new'>;
   /** The saved lines it was computed from, for "saving the same prescription twice". */
   linesKey: string;
+  /** Row id -> routine entries its decision wrote, so undoing one of them reopens the row (as in the core). */
+  effects?: Record<T.ID, T.ID[]>;
 }
 
 export interface StoredShare {

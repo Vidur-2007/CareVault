@@ -165,6 +165,13 @@ describe('add a record: the demo prescription and Check the values', () => {
     expect((await services.documents.get(id)).state).toBe('filed');
     // Saving never changed the routine.
     expect((await services.routine.list(IDS.ramesh)).some((m) => m.productName.startsWith('Aspirin'))).toBe(false);
+
+    // "Not now" puts the review off; it stays reopenable from the record page.
+    const dismiss = vi.spyOn(services.routine, 'dismiss');
+    await userEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/records/${id}`));
+    expect(dismiss).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole('link', { name: 'Review changes to the current routine' })).toHaveAttribute('href', `/records/${id}/review`);
   });
 
   it('"Leave unknown" keeps the line unverified', async () => {

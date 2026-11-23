@@ -410,10 +410,24 @@ export function createMockServicesV2(options: MockV2Options = {}): CareVaultServ
         return undoEvent(ctx, eventId);
       }),
       proposalFor: (documentId) => read('routine', () => {
-        getDoc(documentId);
+        const d = getDoc(documentId);
         const stored = currentProposal(documentId);
-        if (stored && stored.proposal.status === 'dismissed') stored.proposal.status = 'open';
-        return stored?.proposal ?? null;
+        if (stored) {
+          if (stored.proposal.status === 'dismissed') stored.proposal.status = 'open';
+          return stored.proposal;
+        }
+        // As in the core: a prescription with lines but no stored review is compared now.
+        const lines = state.lines.filter((l) => l.documentId === documentId);
+        if (lines.length === 0) return null;
+        const id = ctx.newId();
+        const { rows, passiveIds } = computeRows(ctx, id, d.profileId, d.prescriberId, lines, {});
+        if (noDifferences(rows)) return null;
+        const proposal: T.RoutineProposal = {
+          id, profileId: d.profileId, documentId, prescriberId: d.prescriberId, createdAt: ctx.now(),
+          routineRevision: revisionOf(ctx, d.profileId), rows, passiveNotMentionedCount: passiveIds.length, status: 'open',
+        };
+        state.proposals.push({ proposal, overrides: {}, linesKey: '' });
+        return proposal;
       }),
       decide: (proposalId, decisions, expectedRevision) => write('routine', () => {
         const stored = storedProposal(proposalId);

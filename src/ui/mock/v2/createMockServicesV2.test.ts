@@ -241,6 +241,29 @@ describe('mock services v2: the demo prescription', () => {
     expect(reopened?.rows.find((r) => r.id === p.rows[0].id)?.decision).toBe('ask_doctor');
   });
 
+  it('as in the core: undoing a change made by a review reopens its row', async () => {
+    const s = make();
+    const { record, candidate } = await demoUpload(s);
+    const p = (await s.prescriptions.save(record.id, demo.prescriberId, candidate.lines)).proposal!;
+    const telmisartan = p.rows[0];
+    await s.routine.decide(p.id, [{ rowId: telmisartan.id, choice: 'started_new' }], p.routineRevision);
+    const events = (await s.routine.profileHistory(IDS.ramesh)).filter((e) => e.proposalId === p.id);
+    expect(events.map((e) => e.type)).toEqual(['replaced', 'changed']);
+    for (const e of [...events].reverse()) await s.routine.undo(e.id);
+    const reopened = (await s.routine.proposalFor(record.id))!;
+    expect(reopened.status).toBe('open');
+    expect(reopened.rows.find((r) => r.id === telmisartan.id)).toMatchObject({ kind: 'changed', decision: null });
+    expect((await s.routine.get(M.telmisartan40)).status).toBe('taking');
+  });
+
+  it('as in the core: proposalFor compares a prescription that has lines but no stored review', async () => {
+    const s = make();
+    const p = (await s.routine.proposalFor(D.raoLatest))!;
+    // The latest Rao prescription matches the routine except Atorvastatin, which is not on it.
+    expect(p.rows.filter((r) => r.asked).map((r) => [r.kind, r.medicine?.id])).toEqual([['not_mentioned', M.atorvastatin10]]);
+    expect((await s.routine.proposalFor(D.raoLatest))?.id).toBe(p.id);
+  });
+
   it('returns no proposal when nothing differs', async () => {
     const s = make();
     const { record } = await s.documents.add(IDS.ramesh, pdfFile('same.pdf'), { source: 'upload' });

@@ -804,3 +804,65 @@ Components still typed on v1 (`DocumentCard`, `PassportView`, `MedicineRow`, `Ti
 - **Hand-entered ingredient rows:** a row left fully empty is dropped, so a medicine can be added with its name alone. It then takes no part in duplicate checks.
 
 **Open questions:** none new.
+
+### Step 6: Review changes (2026-11-23)
+
+**Review changes (`/records/:id/review`, 4.7)** is `screens/ReviewChangesScreen.tsx`, with its parts in `screens/review/`:
+- **Header:** "What changed on this prescription", then "Dr. Kavita Rao · 13 Nov 2026. Nothing changes until you choose."
+- **One card per asked row,** in the order changed, new, not_mentioned, uncertain_match. Each card has:
+  - a pill (Changed, New, Not mentioned, Possible match);
+  - the routine value ("In the routine now") beside the prescription value ("On this prescription");
+  - the question and its choices as radio buttons, with the exact wording of the spec.
+- **Pronouns:** the wording follows the profile relation ("he", "she", "they"). For "Myself" the questions say "you" and the answers say "I" ("Yes, I have started 80 mg").
+- **"No change" rows** collapse into one line ("2 medicines are the same as in the routine", with their names). `passiveNotMentionedCount` becomes "3 other medicines in the routine are not on this prescription. Nothing changes for them." Neither has buttons.
+- **Blocked rows** (`blockedByVerification`):
+  - They lose the choices that write values (`started`, `not_started`, `started_new`).
+  - They show the value as read ("It reads “7? mg” on the original") and "Check the strength first". The wording names the flagged field, or says "values" when several are flagged.
+  - The link goes to `/records/:id/verify?return=…/review`. Check the values brings the user back, and the choices made before leaving are still there.
+  - If the core still returns `verification_required`, the screen sends the user to the check, with the return link.
+- **Choices are held on screen** and sent together with "Save these choices": one `routine.decide` call, in card order, with the proposal's `routineRevision`.
+  - Held choices are kept in `sessionStorage` per record, so they survive the trip to Check the values.
+  - They are cleared once saved, or by Not now.
+- **Confirmation first:** "No, he has stopped" and "He is not taking it" open a confirmation before they are held:
+  - "Mark Atorvastatin 10 mg as stopped?";
+  - for a new row, "Leave Aspirin out of the routine?".
+- **On `stale`:**
+  - an alert says the routine changed since this review was prepared and that it has been refreshed;
+  - the proposal is reloaded;
+  - a held choice is kept only when its row still matches (same kind, line and routine entry) and the choice is still offered;
+  - the others are named ("Choose again for Atorvastatin 10 mg: it changed").
+- **"Not now"** calls `routine.dismiss` and returns to the record. The add flow's "Not now" (4.4) now dismisses too.
+- **After saving:**
+  - a summary with one sentence per answer ("Telmisartan updated to 80 mg.", "Aspirin added.", "Atorvastatin unchanged.");
+  - an Undo for each change. It undoes that answer's events, newest first, and removes the question it added for the next visit. If a later change touched the medicine, it shows "A later change was made; see the history." with a link to the medicine's history;
+  - rows reopened by an undo, or offered again after Same medicine or Different medicine, appear under "Still to answer".
+- **Record detail (4.5)** gains "Changes to the current routine" for prescriptions. From `routine.proposalFor`, it shows how many differences have no answer yet, or "No differences with the current routine", and links to "Review changes to the current routine". This is how a skipped or put-off review is reopened.
+
+**The mock** now matches the core in two places I found on `feature/core`:
+- `routine.undo` of an event made by a review reopens that row (decision cleared, proposal open).
+- `proposalFor` compares a prescription that has lines but no stored review, and stores the result.
+
+**Tests.**
+- `ReviewChangesScreen.test.tsx` (14 tests):
+  - **the demo prescription's rows as in fixtures `expected`:** kinds, entries, asked and blocked; the three cards in order with their pills, questions and exact choices; the "No change" and passive lines without buttons;
+  - **blocked row, then Check the values, then back:** correcting 7? to 75 mg; the earlier choice kept; Aspirin now offered "Yes, he takes it"; saved;
+  - `verification_required` from `decide` routes to the check;
+  - **skip leaves no trace:** the routine, the history and `attention.list` are unchanged, and Home shows nothing;
+  - **Not now, then reopen from the record:** `dismiss` is called and the held choices are forgotten;
+  - **stale reload keeping the choices that still match,** with the second save sent at the new revision;
+  - **the summary and per-change Undo** with the decisions of `expected` (the passport's current medicines equal `afterDecisions`). Undoing Telmisartan reopens its row; undoing Aspirin brings the passport back to the sample;
+  - both confirmations; Undo of an ask-the-doctor answer removes its question; Undo refused after a later change;
+  - nothing to review; another profile's record; load error with Try again;
+  - a slow reload after saving never shows the answered cards again;
+  - the wording helpers (pronouns, "Myself", names, doses, counts, sentences, matching held choices).
+- `createMockServicesV2.test.ts` has two new tests for the mock changes above. The add-flow test checks that its "Not now" dismisses.
+- `npm run check` passes: 32 test files, 526 tests, build OK. Lint is clean.
+- **Browser check:** real-time screenshots of the review at 1280 and 390 px: blocked Aspirin, the stop confirmation, and the summary. No page errors. One fix came from them: with the mock's real delays, the answered cards showed again for a moment after saving while the review reloaded. The screen now shows the proposal returned by `decide` until the reload arrives, and a test covers it.
+
+**Differs from the spec, or chosen here:**
+- **The not_mentioned pill** reads "Not mentioned". "Not on this prescription" is already the card's right-hand side.
+- **Rows answered before** (other than skipped) are listed under "Answered earlier" with their answer. Skipped rows are offered again when the review is reopened.
+- **Undo of a "changed to the new dose" answer** undoes both of its events (the new entry and the replaced one), so the routine returns to how it was.
+- **The record page calls `proposalFor`.** As in the core, this reopens a put-off review. Nothing about reviews reaches Home either way.
+
+**Open questions:** none new.

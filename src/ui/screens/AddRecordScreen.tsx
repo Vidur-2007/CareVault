@@ -85,6 +85,17 @@ export function AddRecordScreen() {
 
   const fail = (err: unknown) => toast.show({ message: toServiceError(err).message, tone: 'error' });
 
+  /** "Not now" on the review offer (4.4): the review is put off and stays reopenable from the record (4.7). */
+  async function putOff(recordId: string, proposalId: string) {
+    try {
+      await services.routine.dismiss(proposalId);
+    } catch (err) {
+      fail(err);
+      return;
+    }
+    navigate(`/records/${recordId}`);
+  }
+
   // ---------- steps 2 and 3: saved, then read ----------
 
   async function read(record: DocumentRecord, allowCloud = false) {
@@ -416,7 +427,7 @@ export function AddRecordScreen() {
             {step.proposal ? (
               <>
                 <Button to={`/records/${step.record.id}/review`}>Review changes</Button>
-                <Button variant="secondary" to={`/records/${step.record.id}`}>Not now</Button>
+                <Button variant="secondary" onClick={() => void putOff(step.record.id, step.proposal!.id)}>Not now</Button>
               </>
             ) : (
               <Button to={`/records/${step.record.id}`}>Open the record</Button>

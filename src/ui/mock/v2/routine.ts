@@ -97,6 +97,7 @@ export function undoEvent(ctx: MockCtx, eventId: T.ID): T.RoutineMedicine {
   const current = state.routine.find((m) => m.id === event.medicineId);
   if (!current) throw new T.ServiceError('not_found', 'This medicine is not on this device.');
   const before = structuredClone(current);
+  reopenRows(ctx, event);
   if (event.before === null) {
     state.routine = state.routine.filter((m) => m.id !== current.id);
     recordEvent(ctx, current, 'undone', `Undid: ${event.detail}`, before, { undoesEventId: eventId }, null);
@@ -105,6 +106,21 @@ export function undoEvent(ctx: MockCtx, eventId: T.ID): T.RoutineMedicine {
   Object.assign(current, structuredClone(event.before), { updatedAt: ctx.now() });
   recordEvent(ctx, current, 'undone', `Undid: ${event.detail}`, before, { undoesEventId: eventId });
   return current;
+}
+
+/** As in the core: the review row whose decision made this change can be answered again. */
+function reopenRows(ctx: MockCtx, event: T.RoutineEvent) {
+  if (event.proposalId === null) return;
+  const stored = ctx.state.proposals.find((p) => p.proposal.id === event.proposalId);
+  if (!stored?.effects) return;
+  const effects = stored.effects;
+  for (const r of stored.proposal.rows) {
+    if (!(effects[r.id] ?? []).includes(event.medicineId)) continue;
+    delete effects[r.id];
+    r.decision = null;
+    r.decidedAt = null;
+    stored.proposal.status = 'open';
+  }
 }
 
 // ---------- field evidence and the verification gate ----------
@@ -320,6 +336,7 @@ export function decide(
 
   for (const { r, choice } of work) {
     if (r.decision === choice) continue; // idempotent: nothing changes, no event
+    const eventsBefore = state.events.length;
     const line = r.line;
     const med = r.medicine ? state.routine.find((m) => m.id === r.medicine!.id) ?? null : null;
     const fromLine = (status: T.RoutineStatus) =>
@@ -390,6 +407,8 @@ export function decide(
     }
     r.decision = choice;
     r.decidedAt = at;
+    const touched = [...new Set(state.events.slice(eventsBefore).map((e) => e.medicineId))];
+    if (touched.length) stored.effects = { ...stored.effects, [r.id]: touched };
   }
 
   refreshProposal(ctx, stored);

@@ -1,6 +1,6 @@
 // Record detail, UI spec 4.5: the original with pages and zoom, the metadata (date source, patient
-// match, pages read), edit, star, file and delete. Check the values and Review changes come in
-// steps 4 and 6.
+// match, pages read), edit, star, file and delete, Check the values, and for prescriptions
+// "Review changes to the current routine", which reopens a skipped or put-off review.
 import { ArrowLeft, CircleCheck, Pencil, Star, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -22,6 +22,7 @@ import { dateSourceText, KIND_LABEL, pagesText, sourceLabel } from '../lib/label
 import { DeleteRecordDialog } from './records/DeleteRecordDialog';
 import { DocumentPreview } from './records/DocumentPreview';
 import { EditDetailsDialog } from './records/EditDetailsDialog';
+import { offeredRows } from './review/reviewText';
 
 function patientText(doc: DocumentRecord, profile: Profile, confirmed: boolean): string {
   if (doc.patientMatch === 'not_found' || !doc.patientNameRead) return 'No patient name found on it';
@@ -31,6 +32,11 @@ function patientText(doc: DocumentRecord, profile: Profile, confirmed: boolean):
     ? `${doc.patientNameRead} · does not match ${profile.name} · you confirmed it is ${profile.name}'s record`
     : `${doc.patientNameRead} · does not match ${profile.name}`;
 }
+
+const reviewText = (open: number) =>
+  open === 0 ? 'Every difference with the routine has an answer.'
+    : open === 1 ? '1 medicine on this prescription differs from the current routine and has no answer yet.'
+      : `${open} medicines on this prescription differ from the current routine and have no answer yet.`;
 
 export function RecordDetailScreen() {
   const { id = '' } = useParams();
@@ -45,6 +51,7 @@ export function RecordDetailScreen() {
   const file = useOriginal(id, mine !== null);
   const isPrescription = mine?.kind === 'prescription';
   const lines = useServiceQuery((s) => s.prescriptions.lines(id), [id, isPrescription], { enabled: isPrescription });
+  const review = useServiceQuery((s) => s.routine.proposalFor(id), [id, isPrescription], { enabled: isPrescription });
   const fields = useServiceQuery((s) => s.documents.fields(id), [id], { enabled: mine !== null });
   const toCheck = (fields.data ?? []).filter((e) => e.status === 'needs_verification' || e.status === 'extracted');
   const flagged = toCheck.filter((e) => e.status === 'needs_verification').length;
@@ -210,6 +217,22 @@ export function RecordDetailScreen() {
                     </li>
                   ))}
                 </ul>
+              )}
+            </section>
+          )}
+
+          {isPrescription && !review.loading && !review.error && (lines.data ?? []).length > 0 && (
+            <section aria-labelledby="rx-review-title" className="rounded-panel bg-surface px-4 py-4">
+              <h2 id="rx-review-title" className="font-sans text-card-sm font-semibold">Changes to the current routine</h2>
+              {review.data ? (
+                <>
+                  <p className="mt-2 text-ink-2">{reviewText(offeredRows(review.data.rows, true).length)}</p>
+                  <Button className="mt-4" variant={offeredRows(review.data.rows, true).length ? 'primary' : 'secondary'} to={`/records/${d.id}/review`}>
+                    Review changes to the current routine
+                  </Button>
+                </>
+              ) : (
+                <p className="mt-2 text-ink-2">No differences with the current routine.</p>
               )}
             </section>
           )}
