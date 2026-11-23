@@ -4,6 +4,7 @@
 // are deterministic. Timestamps use India Standard Time (+05:30).
 
 import type {
+  DocumentKind,
   DocumentRecord,
   ExtractedLine,
   FieldEvidence,
@@ -494,7 +495,8 @@ export const expected = {
       latestLipidProfile: { query: { text: 'lipid profile', sort: 'newest', limit: 1 } as RecordQuery, firstId: D.lipidProfile },
       hba1cByTest: { query: { testName: 'HbA1c', sort: 'newest' } as RecordQuery, ids: [D.hba1c] },
       cardiologyPrescriptions: {
-        query: { kinds: ['prescription'], prescriberId: P.rao, sort: 'newest' } as RecordQuery,
+        // `kinds` stays a plain, present array: callers pass it to records.search or spread it.
+        query: { kinds: ['prescription'] as DocumentKind[], prescriberId: P.rao as ID, sort: 'newest' as const },
         ids: [D.raoLatest, D.raoPrevious],
       },
     },
