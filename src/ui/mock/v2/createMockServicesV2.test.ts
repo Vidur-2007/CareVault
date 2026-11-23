@@ -186,7 +186,7 @@ describe('mock services v2: the demo prescription', () => {
     const ready = (await s.routine.proposalFor(record.id))!;
     expect(ready.id).toBe(p.id);
     expect(ready.rows.map((r) => ({ kind: r.kind, lineProductName: r.line?.productName ?? null, medicineId: r.medicine?.id ?? null, asked: r.asked })))
-      .toEqual(demo.proposalRows.map((r) => ({ kind: r.kind, lineProductName: r.lineProductName, medicineId: r.medicineId, asked: r.asked })));
+      .toEqual(demo.proposalRowsAfterCheck.map((r) => ({ kind: r.kind, lineProductName: r.lineProductName, medicineId: r.medicineId, asked: r.asked })));
     expect(ready.rows.every((r) => !r.blockedByVerification)).toBe(true);
 
     const before = Object.fromEntries((await s.routine.list(IDS.ramesh)).map((m) => [m.id, m]));
