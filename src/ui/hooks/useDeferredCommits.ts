@@ -1,25 +1,24 @@
-// Answers to review items with Undo. The contract has no "unresolve", so the answer is held
-// for the life of the toast (5 s) and sent to review.resolve only when the toast closes
-// without Undo. Leaving the screen or the page sends held answers straight away.
+// The deferred-Undo pattern kept from the v1 Review screen (UI spec section 2): an answer hides its
+// item at once and shows a toast with Undo. The write is held for the life of the toast (5 s) and
+// sent only when the toast closes without Undo. Leaving the screen or the page sends held writes
+// straight away, so nothing is lost.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ReviewResolution } from '../../contract/legacy/types';
 import { toServiceError } from './toServiceError';
-import { useServices, useToast } from './useContexts';
+import { useToast } from './useContexts';
 
 interface Held {
-  resolution: ReviewResolution;
-  opts?: { keepMedicineId?: string };
+  commit: () => Promise<unknown>;
   toastId: string;
 }
 
-export interface DeferredResolutions {
-  /** Items answered but not yet sent (or sent and not yet gone from the list). */
+export interface DeferredCommits {
+  /** Items answered but not yet sent, or sent and not yet gone from the list. */
   hidden: ReadonlySet<string>;
-  answer: (itemId: string, resolution: ReviewResolution, message: string, opts?: Held['opts']) => void;
+  /** Hides the item, shows `message` with Undo, and runs `commit` when the toast closes. */
+  answer: (itemId: string, message: string, commit: () => Promise<unknown>) => void;
 }
 
-export function useDeferredResolutions(): DeferredResolutions {
-  const services = useServices();
+export function useDeferredCommits(): DeferredCommits {
   const toast = useToast();
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
   const held = useRef(new Map<string, Held>());
@@ -32,23 +31,23 @@ export function useDeferredResolutions(): DeferredResolutions {
     });
   }, []);
 
-  const commit = useCallback(
+  const send = useCallback(
     async (id: string) => {
       const entry = held.current.get(id);
       if (!entry) return; // undone, or already sent
       held.current.delete(id);
       try {
-        await services.review.resolve(id, entry.resolution, entry.opts);
+        await entry.commit();
       } catch (err) {
         toast.show({ message: `Your answer could not be saved. ${toServiceError(err).message}`, tone: 'error' });
         show(id);
       }
     },
-    [services, toast, show],
+    [toast, show],
   );
 
-  const answer = useCallback<DeferredResolutions['answer']>(
-    (itemId, resolution, message, opts) => {
+  const answer = useCallback<DeferredCommits['answer']>(
+    (itemId, message, commit) => {
       setHidden((h) => new Set(h).add(itemId));
       const toastId = toast.show({
         message,
@@ -60,21 +59,20 @@ export function useDeferredResolutions(): DeferredResolutions {
             show(itemId);
           },
         },
-        onExpire: () => void commit(itemId),
+        onExpire: () => void send(itemId),
       });
-      held.current.set(itemId, { resolution, opts, toastId });
+      held.current.set(itemId, { commit, toastId });
     },
-    [toast, show, commit],
+    [toast, show, send],
   );
 
-  // Send held answers when the screen unmounts or the page is hidden, so nothing is lost.
   useEffect(() => {
     const map = held.current;
     const flush = () => {
-      const entries = [...map];
+      const entries = [...map.values()];
       map.clear();
-      for (const [id, entry] of entries) {
-        services.review.resolve(id, entry.resolution, entry.opts).catch(() => {});
+      for (const entry of entries) {
+        entry.commit().catch(() => {});
         toast.dismiss(entry.toastId);
       }
     };
@@ -83,7 +81,7 @@ export function useDeferredResolutions(): DeferredResolutions {
       window.removeEventListener('pagehide', flush);
       flush();
     };
-  }, [services, toast]);
+  }, [toast]);
 
   return { hidden, answer };
 }

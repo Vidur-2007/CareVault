@@ -1,14 +1,16 @@
-// Welcome, UI spec 7.1. Shown when there is no profile; rendered without the app shell.
+// Welcome, UI spec 4.1. Shown when there is no profile, and for "Add a profile" (?new=profile).
+// Rendered without the navigation.
 import { AnimatePresence, motion } from 'motion/react';
 import { Smartphone } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
-import type { Profile } from '../../contract/legacy/types';
+import { useNavigate, useSearchParams } from 'react-router';
+import type { Profile } from '../../contract/types';
 import { useMotionPresets } from '../app/motion';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Logo } from '../components/Logo';
 import { useProfile, useToast } from '../hooks/useContexts';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useServiceAction } from '../hooks/useServiceAction';
 import { CreateProfileForm } from './welcome/CreateProfileForm';
 
@@ -17,10 +19,12 @@ export function WelcomeScreen() {
   const presets = useMotionPresets();
   const toast = useToast();
   const { profiles, setProfileId } = useProfile();
-  const [creating, setCreating] = useState(false);
+  const [params] = useSearchParams();
+  const [creating, setCreating] = useState(params.get('new') === 'profile');
   const loadSample = useServiceAction((s) => s.profiles.loadSampleProfile(), {
-    errorPrefix: 'The sample profile could not be loaded',
+    errorPrefix: 'The sample profiles could not be loaded',
   });
+  useDocumentTitle(creating && profiles.length > 0 ? 'Add a profile' : 'Welcome');
 
   const enter = (profile: Profile) => {
     setProfileId(profile.id);
@@ -34,15 +38,15 @@ export function WelcomeScreen() {
           <Logo />
           {profiles.length > 0 && (
             <Button to="/" variant="quiet">
-              Back to Review
+              Back to Home
             </Button>
           )}
         </div>
 
         <h1 className="mt-10 text-page-sm md:mt-14 md:text-page">Welcome to CareVault</h1>
         <p className="mt-4 text-[18px] leading-[1.5] text-ink-2 md:text-[20px]">
-          A family health passport: keep track of the medicines and medical records of someone you care for, and arrive at
-          each doctor visit with what changed and what to ask.
+          A family health passport: keep the medicines and medical records of someone you care for, or your own, in one
+          place, and arrive at each doctor visit with what changed and what to ask.
         </p>
         <p className="mt-4 flex items-start gap-3 rounded-panel bg-teal-tint px-4 py-3 text-teal-ink">
           <Smartphone aria-hidden className="mt-0.5 size-5 shrink-0" />
@@ -57,12 +61,12 @@ export function WelcomeScreen() {
             onClick={async () => {
               const profile = await loadSample.run();
               if (profile) {
-                toast.show({ message: 'Sample profile loaded. All of its data is invented.', tone: 'success' });
+                toast.show({ message: 'Sample profiles loaded. All of their data is invented.', tone: 'success' });
                 enter(profile);
               }
             }}
           >
-            Try the sample profile
+            Try the sample profiles
           </Button>
           {!creating && (
             <Button variant="secondary" cta className="!shadow-none" onClick={() => setCreating(true)} disabled={loadSample.pending}>
@@ -70,7 +74,9 @@ export function WelcomeScreen() {
             </Button>
           )}
         </div>
-        <p className="mt-3 text-secondary text-ink-3">The sample profile is a made-up father with a few medicines and reports, so you can look around first.</p>
+        <p className="mt-3 text-secondary text-ink-3">
+          The sample profiles are a made-up father and mother with a few medicines and reports, so you can look around first.
+        </p>
 
         <AnimatePresence>
           {creating && (

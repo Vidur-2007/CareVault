@@ -2,55 +2,177 @@ import '../test/configureTesting';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
-import { createMockServices } from '../mock/createMockServices';
+import type { RouteObject } from 'react-router';
+import { afterEach, describe, expect, it } from 'vitest';
+import { IDS } from '../../contract/fixtures/sampleCase';
+import { useProfile } from '../hooks/useContexts';
+import { useServiceQuery } from '../hooks/useServiceQuery';
+import { createMockServicesV2 } from '../mock/v2/createMockServicesV2';
 import { App } from './App';
-import { routes } from './routes';
+import { sectionAfterSwitch } from './navItems';
+import { PLANNED_ROUTES, routes } from './routes';
 
-function renderAt(path: string, seeded = true) {
-  const services = createMockServices({ delayMs: 0, seeded, fail: () => null });
-  const router = createMemoryRouter(routes, { initialEntries: [path] });
-  render(<App services={services} router={router} />);
-  return { services, router };
+const mock = (opts: { seeded?: boolean; delayMs?: number } = {}) => createMockServicesV2({ delayMs: 0, fail: () => null, ...opts });
+
+function renderAt(path: string, opts: { seeded?: boolean; delayMs?: number; routes?: RouteObject[] } = {}) {
+  const services = mock(opts);
+  const router = createMemoryRouter(opts.routes ?? routes, { initialEntries: [path] });
+  const view = render(<App services={services} router={router} />);
+  return { services, router, ...view };
 }
 
-describe('app shell', () => {
-  it('renders navigation, the profile and the screen for the route', async () => {
-    renderAt('/medicines');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Medicines' })).toBeInTheDocument();
+afterEach(() => {
+  localStorage.removeItem('cv.profileId');
+});
+
+describe('v2 shell and navigation', () => {
+  it('shows Home, Records, Passport and Ask, with Settings in the profile menu', async () => {
+    renderAt('/records');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Records' })).toBeInTheDocument();
     const navs = screen.getAllByRole('navigation', { name: 'Main' });
+    expect(navs).toHaveLength(2); // desktop top bar and phone tabs; CSS shows one
     for (const nav of navs) {
-      expect(within(nav).getByRole('link', { name: /Medicines/ })).toHaveAttribute('aria-current', 'page');
-      expect(within(nav).queryByRole('link', { name: /components/i })).toBeNull();
+      expect(within(nav).getAllByRole('link').map((l) => l.textContent)).toEqual(['Home', 'Records', 'Passport', 'Ask']);
+      expect(within(nav).getByRole('link', { name: 'Records' })).toHaveAttribute('aria-current', 'page');
     }
-    // Phone, tablet and desktop switchers are all in the DOM; CSS shows one per breakpoint.
-    expect(screen.getAllByRole('button', { name: /Profile: Ramesh Iyer, Father, 71/ })).toHaveLength(3);
+    // Phone, tablet and desktop menus are all in the DOM; CSS shows one per breakpoint.
+    const menus = screen.getAllByRole('button', { name: 'Profile: Ramesh Iyer, Father, 71. Profile menu' });
+    expect(menus).toHaveLength(3);
+    await userEvent.click(menus[0]);
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('link', { name: 'Add a profile' })).toHaveAttribute('href', '/welcome?new=profile');
+    expect(screen.getByRole('button', { name: /Lakshmi Iyer/ })).toBeInTheDocument();
   });
 
-  it('navigates between sections', async () => {
+  it('moves between sections', async () => {
     const { router } = renderAt('/');
-    await screen.findByRole('heading', { level: 1, name: /things to review/i });
+    await screen.findByRole('heading', { level: 1, name: 'Home' });
     const nav = screen.getAllByRole('navigation', { name: 'Main' })[0];
-    await userEvent.click(within(nav).getByRole('link', { name: /Visit/ }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'What changed since the last visit' })).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe('/visit');
+    await userEvent.click(within(nav).getByRole('link', { name: 'Passport' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Passport' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/passport');
+    expect(document.title).toBe('Passport · CareVault');
   });
 
-  it('sends a device with no profiles to /welcome, and the sample profile loads', async () => {
-    const { router } = renderAt('/', false);
+  it('sends a device with no profiles to /welcome, and the sample profiles load', async () => {
+    const { router, services } = renderAt('/', { seeded: false });
     expect(await screen.findByRole('heading', { level: 1, name: 'Welcome to CareVault' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/welcome');
-    await userEvent.click(screen.getByRole('button', { name: 'Try the sample profile' }));
-    expect(await screen.findByRole('heading', { level: 1, name: /things to review/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Try the sample profiles' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Home' })).toBeInTheDocument();
+    expect((await services.profiles.list()).map((p) => p.id)).toEqual([IDS.ramesh, IDS.lakshmi]);
   });
 
-  it('every route renders a page heading', async () => {
-    for (const path of ['/medicines/scan', '/medicines/x', '/records', '/records/x', '/visit/passport', '/settings', '/share/abc', '/nope']) {
-      const { unmount } = render(
-        <App services={createMockServices({ delayMs: 0, fail: () => null })} router={createMemoryRouter(routes, { initialEntries: [path] })} />,
-      );
-      expect(await screen.findByRole('heading', { level: 1 })).toBeInTheDocument();
+  it('every v2 route renders its screen or placeholder and sets document.title', async () => {
+    const cases = [
+      ...PLANNED_ROUTES.map((r) => ({ path: r.path.replace(/:[a-zA-Z]+/g, 'x'), heading: r.title, title: `${r.title} · CareVault`, bare: !!r.bare })),
+      { path: '/welcome', heading: 'Welcome to CareVault', title: 'Welcome · CareVault', bare: true },
+      { path: '/no-such-page', heading: 'This page does not exist', title: 'Page not found · CareVault', bare: false },
+    ];
+    expect(cases.map((c) => c.path)).toEqual(expect.arrayContaining([
+      '/', '/records', '/records/add', '/records/x', '/records/x/verify', '/records/x/review', '/passport',
+      '/passport/medicines/x', '/passport/snapshots/x', '/passport/print/x', '/ask', '/settings', '/welcome', '/share/x',
+    ]));
+    for (const c of cases) {
+      document.title = '';
+      const { unmount } = renderAt(c.path);
+      expect(await screen.findByRole('heading', { level: 1, name: c.heading })).toBeInTheDocument();
+      expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+      expect(document.title).toBe(c.title);
+      expect(screen.queryAllByRole('navigation', { name: 'Main' })).toHaveLength(c.bare ? 0 : 2);
       unmount();
     }
+  });
+});
+
+// ---------- profile switching ----------
+
+const RAMESH_ONLY = ['Amlodipine 10 mg', 'Dr. Kavita Rao'];
+const LAKSHMI_ONLY = ['Levothyroxine 50 mcg', 'Dr. Farah Khan'];
+
+/** A test screen that shows profile data the way real screens load it. */
+function Probe() {
+  const { profile, prescribers } = useProfile();
+  const routine = useServiceQuery((s) => s.routine.list(profile!.id), [profile?.id]);
+  return (
+    <div>
+      <h1>Probe</h1>
+      <p>{prescribers.map((p) => p.name).join(', ')}</p>
+      {routine.loading ? <p>Loading medicines</p> : <ul>{routine.data?.map((m) => <li key={m.id}>{m.productName}</li>)}</ul>}
+    </div>
+  );
+}
+
+const probeRoutes: RouteObject[] = [
+  { element: routes[0].element, children: [{ path: '/probe', element: <Probe /> }, ...(routes[0].children ?? [])] },
+  ...routes.slice(1),
+];
+
+/** Records every text that appears in the page, so a single frame with old data is caught. */
+function watchText() {
+  const seen: string[] = [];
+  const observer = new MutationObserver((records) => {
+    for (const r of records) {
+      for (const node of r.addedNodes) if (node.textContent) seen.push(node.textContent);
+      if (r.type === 'characterData' && r.target.textContent) seen.push(r.target.textContent);
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  return {
+    seen,
+    stop: () => {
+      for (const r of observer.takeRecords()) for (const node of r.addedNodes) if (node.textContent) seen.push(node.textContent);
+      observer.disconnect();
+    },
+  };
+}
+
+async function switchTo(name: RegExp) {
+  await userEvent.click(screen.getAllByRole('button', { name: /Profile menu/ })[0]);
+  await userEvent.click(screen.getByRole('button', { name }));
+}
+
+describe('switching profile', () => {
+  it("never shows the previous profile's data, even for one frame", async () => {
+    renderAt('/probe', { routes: probeRoutes, delayMs: 30 });
+    for (const text of RAMESH_ONLY) expect(await screen.findByText(new RegExp(text))).toBeInTheDocument();
+
+    const watch = watchText();
+    await switchTo(/Lakshmi Iyer/);
+    // Straight after the switch is rendered: nothing of Ramesh's is left on screen.
+    for (const text of RAMESH_ONLY) expect(screen.queryByText(new RegExp(text))).toBeNull();
+    for (const text of LAKSHMI_ONLY) expect(await screen.findByText(new RegExp(text))).toBeInTheDocument();
+    watch.stop();
+    for (const text of RAMESH_ONLY) expect(watch.seen.filter((t) => t.includes(text))).toEqual([]);
+    expect(screen.getAllByRole('button', { name: 'Profile: Lakshmi Iyer, Mother, 68. Profile menu' })).toHaveLength(3);
+
+    // And back.
+    const back = watchText();
+    await switchTo(/Ramesh Iyer/);
+    for (const text of LAKSHMI_ONLY) expect(screen.queryByText(new RegExp(text))).toBeNull();
+    expect(await screen.findByText('Amlodipine 10 mg')).toBeInTheDocument();
+    back.stop();
+    for (const text of LAKSHMI_ONLY) expect(back.seen.filter((t) => t.includes(text))).toEqual([]);
+  });
+
+  it('keeps the choice, and leaves a record or medicine page for its section', async () => {
+    const { router } = renderAt(`/records/${IDS.documents.lipidProfile}`);
+    await screen.findByRole('heading', { level: 1, name: 'Record' });
+    await switchTo(/Lakshmi Iyer/);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Records' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/records');
+    expect(localStorage.getItem('cv.profileId')).toBe(IDS.lakshmi);
+
+    expect(sectionAfterSwitch('/passport/medicines/abc')).toBe('/passport');
+    expect(sectionAfterSwitch('/passport/print/abc')).toBe('/passport');
+    expect(sectionAfterSwitch('/records/add')).toBe('/records');
+    expect(sectionAfterSwitch('/ask')).toBe('/ask');
+    expect(sectionAfterSwitch('/')).toBe('/');
+  });
+
+  it('opens the stored profile on start', async () => {
+    localStorage.setItem('cv.profileId', IDS.lakshmi);
+    renderAt('/');
+    expect((await screen.findAllByRole('button', { name: /Profile: Lakshmi Iyer/ })).length).toBe(3);
   });
 });

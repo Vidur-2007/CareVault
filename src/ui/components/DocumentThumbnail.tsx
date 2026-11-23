@@ -1,6 +1,6 @@
 import { FileText, Image as ImageIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { DocumentRecord } from '../../contract/legacy/types';
+import type { DocumentRecord } from '../../contract/types';
 import { useServices } from '../hooks/useContexts';
 import { canRenderPdf, openPdf, renderPdfPage } from './pdfPreview';
 
@@ -41,7 +41,7 @@ export function DocumentThumbnail({ document: doc }: { document: Pick<DocumentRe
     let objectUrl: string | null = null;
     (async () => {
       try {
-        const file = await services.documents.file(doc.id);
+        const { blob: file } = await services.documents.file(doc.id);
         if (cancelled) return;
         if (isImage && img.current) {
           objectUrl = URL.createObjectURL(file);

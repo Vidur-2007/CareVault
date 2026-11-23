@@ -1,46 +1,58 @@
-import type { Profile } from '../../../contract/legacy/types';
+import type { Profile } from '../../../contract/types';
 
 export interface ProfileFormValues {
+  /** "I manage my own records": no caregiver, relation "Myself". */
+  selfManaged: boolean;
   name: string;
   relation: string;
   birthYear: string;
+  emergencyContact: string;
   caregiverName: string;
   caregiverRelation: string;
 }
 
-export type ProfileFormErrors = Partial<Record<keyof ProfileFormValues, string>>;
+type TextField = Exclude<keyof ProfileFormValues, 'selfManaged'>;
+export type ProfileFormErrors = Partial<Record<TextField, string>>;
+export type NewProfile = Omit<Profile, 'id' | 'createdAt'>;
 
-export const EMPTY_PROFILE_FORM: ProfileFormValues = { name: '', relation: '', birthYear: '', caregiverName: '', caregiverRelation: '' };
-
-/** Field order, used to focus the first field with an error. */
-export const PROFILE_FIELD_ORDER: (keyof ProfileFormValues)[] = ['name', 'relation', 'birthYear', 'caregiverName', 'caregiverRelation'];
-
-const MAX = 60;
-
-const REQUIRED: Record<Exclude<keyof ProfileFormValues, 'birthYear'>, string> = {
-  name: 'Please enter their name.',
-  relation: 'Please enter how they are related to you, for example Father.',
-  caregiverName: 'Please enter your name.',
-  caregiverRelation: 'Please enter your relation to them, for example daughter.',
+export const EMPTY_PROFILE_FORM: ProfileFormValues = {
+  selfManaged: false, name: '', relation: '', birthYear: '', emergencyContact: '', caregiverName: '', caregiverRelation: '',
 };
 
+/** Field order on screen, used to focus the first field with an error. */
+export const PROFILE_FIELD_ORDER: TextField[] = ['name', 'relation', 'birthYear', 'emergencyContact', 'caregiverName', 'caregiverRelation'];
+
+const MAX = 60;
+const MAX_CONTACT = 100;
+export const SELF_RELATION = 'Myself';
+
+const clean = (s: string) => s.trim().replace(/\s+/g, ' ');
+
 /** Returns errors per field, and the profile to create when there are none. */
-export function validateProfile(
-  values: ProfileFormValues,
-  currentYear: number,
-): { errors: ProfileFormErrors; profile: Omit<Profile, 'id' | 'createdAt'> | null } {
+export function validateProfile(values: ProfileFormValues, currentYear: number): { errors: ProfileFormErrors; profile: NewProfile | null } {
   const errors: ProfileFormErrors = {};
-  const trimmed = {
-    name: values.name.trim().replace(/\s+/g, ' '),
-    relation: values.relation.trim().replace(/\s+/g, ' '),
-    caregiverName: values.caregiverName.trim().replace(/\s+/g, ' '),
-    caregiverRelation: values.caregiverRelation.trim().replace(/\s+/g, ' '),
+  const self = values.selfManaged;
+  const v = {
+    name: clean(values.name),
+    relation: clean(values.relation),
+    emergencyContact: clean(values.emergencyContact),
+    caregiverName: clean(values.caregiverName),
+    caregiverRelation: clean(values.caregiverRelation),
   };
 
-  for (const key of Object.keys(REQUIRED) as (keyof typeof REQUIRED)[]) {
-    if (!trimmed[key]) errors[key] = REQUIRED[key];
-    else if (trimmed[key].length > MAX) errors[key] = `Please use ${MAX} characters or fewer.`;
+  const required: Partial<Record<TextField, string>> = self
+    ? { name: 'Please enter your name.' }
+    : {
+      name: 'Please enter their name.',
+      relation: 'Please enter how they are related to you, for example Father.',
+      caregiverName: 'Please enter your name.',
+      caregiverRelation: 'Please enter your relation to them, for example daughter.',
+    };
+  for (const [key, message] of Object.entries(required) as [keyof typeof v, string][]) {
+    if (!v[key]) errors[key] = message;
+    else if (v[key].length > MAX) errors[key] = `Please use ${MAX} characters or fewer.`;
   }
+  if (v.emergencyContact.length > MAX_CONTACT) errors.emergencyContact = `Please use ${MAX_CONTACT} characters or fewer.`;
 
   let birthYear: number | null = null;
   const year = values.birthYear.trim();
@@ -57,11 +69,12 @@ export function validateProfile(
   return {
     errors,
     profile: {
-      name: trimmed.name,
-      relation: trimmed.relation[0].toUpperCase() + trimmed.relation.slice(1),
+      name: v.name,
+      relation: self ? SELF_RELATION : v.relation[0].toUpperCase() + v.relation.slice(1),
       birthYear,
-      caregiverName: trimmed.caregiverName,
-      caregiverRelation: trimmed.caregiverRelation.toLowerCase(),
+      caregiverName: self ? '' : v.caregiverName,
+      caregiverRelation: self ? '' : v.caregiverRelation.toLowerCase(),
+      emergencyContact: v.emergencyContact || null,
     },
   };
 }

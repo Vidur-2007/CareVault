@@ -2,10 +2,10 @@ import { lazy, Suspense } from 'react';
 import type { ComponentType } from 'react';
 import type { RouteObject } from 'react-router';
 import { ScreenFallback } from '../components/ScreenFallback';
-import { ReviewScreen } from '../screens/ReviewScreen';
+import { Placeholder } from '../screens/Placeholder';
 import { AppShell } from './AppShell';
 
-/** Each screen is its own chunk; Review (the home screen) stays in the main bundle. */
+/** Each screen is its own chunk. */
 function screen<M>(load: () => Promise<M>, pick: (module: M) => ComponentType) {
   const Screen = lazy(async () => ({ default: pick(await load()) }));
   return (
@@ -15,26 +15,49 @@ function screen<M>(load: () => Promise<M>, pick: (module: M) => ComponentType) {
   );
 }
 
-/** Every route from overview spec section 11, plus the private /dev/components gallery. */
+export interface PlannedRoute {
+  path: string;
+  /** The page title: document.title is "<title> · CareVault". */
+  title: string;
+  /** The step of UI spec section 6 that builds the screen. */
+  step: number;
+  /** Rendered without the navigation (UI spec section 3). */
+  bare?: boolean;
+}
+
+/**
+ * The v2 routes of overview section 11 that still show a placeholder. Each one is replaced by its
+ * screen in its step.
+ */
+export const PLANNED_ROUTES: PlannedRoute[] = [
+  { path: '/', title: 'Home', step: 9 },
+  { path: '/records', title: 'Records', step: 3 },
+  { path: '/records/add', title: 'Add a record', step: 4 },
+  { path: '/records/:id', title: 'Record', step: 3 },
+  { path: '/records/:id/verify', title: 'Check the values', step: 4 },
+  { path: '/records/:id/review', title: 'Review changes', step: 6 },
+  { path: '/passport', title: 'Passport', step: 5 },
+  { path: '/passport/medicines/:id', title: 'Medicine', step: 5 },
+  { path: '/passport/snapshots/:id', title: 'Passport snapshot', step: 7 },
+  { path: '/passport/print/:snapshotId', title: 'Print the passport', step: 7 },
+  { path: '/ask', title: 'Ask', step: 8 },
+  { path: '/settings', title: 'Settings', step: 9 },
+  { path: '/share/:id', title: 'Shared passport', step: 7, bare: true },
+];
+
+const placeholder = (r: PlannedRoute): RouteObject => ({ path: r.path, element: <Placeholder title={r.title} step={r.step} /> });
+
 export const routes: RouteObject[] = [
   {
     element: <AppShell />,
     children: [
-      { path: '/', element: <ReviewScreen /> },
-      { path: '/medicines', element: screen(() => import('../screens/MedicinesScreen'), (m) => m.MedicinesScreen) },
-      { path: '/medicines/scan', element: screen(() => import('../screens/ScanScreen'), (m) => m.ScanScreen) },
-      { path: '/medicines/:id', element: screen(() => import('../screens/MedicineDetailScreen'), (m) => m.MedicineDetailScreen) },
-      { path: '/records', element: screen(() => import('../screens/RecordsScreen'), (m) => m.RecordsScreen) },
-      { path: '/records/:id', element: screen(() => import('../screens/DocumentDetailScreen'), (m) => m.DocumentDetailScreen) },
-      { path: '/visit', element: screen(() => import('../screens/VisitScreen'), (m) => m.VisitScreen) },
-      { path: '/visit/passport', element: screen(() => import('../screens/PassportScreen'), (m) => m.PassportScreen) },
-      { path: '/settings', element: screen(() => import('../screens/SettingsScreen'), (m) => m.SettingsScreen) },
+      ...PLANNED_ROUTES.filter((r) => !r.bare).map(placeholder),
       { path: '*', element: screen(() => import('../screens/NotFoundScreen'), (m) => m.NotFoundScreen) },
     ],
   },
-  // Without the shell:
+  // Without the navigation:
   { path: '/welcome', element: screen(() => import('../screens/WelcomeScreen'), (m) => m.WelcomeScreen) },
-  { path: '/share/:id', element: screen(() => import('../screens/ShareScreen'), (m) => m.ShareScreen) },
+  ...PLANNED_ROUTES.filter((r) => r.bare).map(placeholder),
   // Private: not linked from navigation. Kept for design review.
   { path: '/dev/components', element: screen(() => import('../screens/DevComponentsScreen'), (m) => m.DevComponentsScreen) },
 ];

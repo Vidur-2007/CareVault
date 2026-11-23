@@ -475,3 +475,65 @@ Tests: 163 on `feat/ui`. On the trial merge, 485 pass; only the build step fails
 - the effect of `still_taking` on `uncertain` entries (point 5);
 - v2-1 to v2-5 are still unanswered;
 - the demo and thyroid PDFs are still missing from `public/sample-docs/`, so the mock serves generated placeholders.
+
+### Step 2: shell, navigation, profile menu, Welcome (2026-11-23)
+
+**The app is now v2.** `src/main.tsx` renders the v2 app. `ServicesProvider` calls `createServicesV2()` once, the first time the app needs it, as overview section 6 asks. The contexts, `useServices`, `useServiceQuery`, `useServiceAction` and `toServiceError` use contract v2. `src/services/index.ts` is unchanged; it still builds the v1 services on import, which only constructs Dexie (checked in step 0). The v1 mock stays, because `src/services/index.ts` imports it and laptop A removes it at the merge checkpoint.
+
+**Navigation (UI spec section 3).**
+- Home, Records, Passport and Ask: bottom tabs on phones, a top bar on desktop.
+- **The profile menu** (the profile button, on every size) holds:
+  - switch profile;
+  - "Add a profile" (`/welcome?new=profile`, which opens the form at once and offers "Back to Home");
+  - Settings.
+- **Routes:** every route of overview section 11 is defined. `/welcome` and `/share/:id` have no navigation. `/passport/print/:snapshotId` keeps the shell, whose bars are already hidden in print. The private `/dev/components` gallery stays.
+  - Welcome is built. Every other route shows a placeholder naming the step that builds it (`PLANNED_ROUTES` in `src/ui/app/routes.tsx`). Each step replaces its placeholders.
+- **`document.title`:** set on every route as "<page> · CareVault" by `useDocumentTitle`, during commit, so the title never lags behind the page. Welcome is "Welcome", or "Add a profile" from the profile menu. Unknown paths are "Page not found".
+- **Dates:** `src/ui/lib/today.ts` no longer has its own rule (the v1 "mock means 14 Nov" check is gone). `todayForProfile(id)` is `todayFor(id, deviceToday())`. The profile context exposes `today` for the open profile. The profile menu computes each profile's age with that profile's own `todayFor`, so Ramesh is 71 on the sample calendar and a new profile uses the device's year.
+- **Profile switch:**
+  - Queries are keyed on the profile id, so they never return another profile's result.
+  - The shell also keys the screen on the profile id, so a switch remounts it with no state left over.
+  - On a page that belongs to one profile (`/records/…`, `/passport/…`), the switch moves to that section's list.
+
+**Welcome (4.1).**
+- "Try the sample profiles" loads both sample profiles and opens Ramesh.
+- The create form has the optional emergency contact (up to 100 characters; empty becomes `null`).
+- The choice "I manage my own records" hides the relation and the caregiver fields. It saves relation "Myself" with an empty caregiver name and relation, and the name field reads "Your name".
+- Validation, linked errors and focus on the first invalid field work as in v1.
+
+**Retired.**
+- **The screens the spec retires:** the Review home screen (with `review/*`), Medicines (with `medicines/*`), Scan (with `scan/*`), Visit (with `visit/*`), the v1 medicine detail, and `DiffRow` and `ReviewCard`, with their tests.
+- **v1 screens rebuilt in later steps:** the v1 Records, record detail, Passport, Settings and Share screens were written against contract v1 and cannot run on v2. They and their sub-folders are removed; their routes show placeholders until steps 3, 5, 7 and 9 rebuild them. The v1 code stays in git history (`fe3b890`) to port from.
+- **The deferred-Undo pattern:** it is now a general hook, `useDeferredCommits`, that holds any write while its Undo toast is open. It no longer calls `review.resolve`.
+
+**Kept.**
+- The design system;
+- the components of UI spec section 2;
+- the motion presets;
+- the hooks and the lazy screens.
+
+Components still typed on v1 (`DocumentCard`, `PassportView`, `MedicineRow`, `TimelineItem`, `pills`, `lineForm`, `lib/format`, `lib/labels`) compile as they are and move to v2 types in the step that first uses them. `DocumentThumbnail` already reads the v2 `documents.file` result. `toServiceError` maps the v2 codes with the wording of UI spec section 8.
+
+**Tests.**
+- `App.test.tsx` (7 tests):
+  - the four tabs and the profile menu with Settings;
+  - moving between sections;
+  - no profiles goes to Welcome, and the sample profiles load;
+  - **every route renders**, with one `h1`, the expected `document.title`, and navigation only where it belongs;
+  - **switching profile never shows the previous profile's data:**
+    - a test screen loads the routine and the prescribers;
+    - a MutationObserver records every text that appears during the switch, and none of the previous profile's medicines or doctors ever appears, in either direction;
+    - I checked the test by making `useServiceQuery` return results for old keys: it fails;
+  - a switch on a record page goes to Records, and the choice is kept;
+  - the stored profile opens on start.
+- `WelcomeScreen.test.tsx` (8 tests): validation, including "I manage my own records" and the contact; errors and focus; creating a caregiver profile with a contact, and checking its age on the device date; creating a self-managed profile; and "Add a profile".
+- `toServiceError.test.ts`: the section 8 wording.
+- `npm run check` passes: 25 test files, 439 tests, build OK. The counts dropped from 534 because the tests of the removed v1 screens went with them. Lint is clean.
+- In a browser with `VITE_USE_MOCK=true`, the app starts on v2: Home on a phone width, and Records on desktop with the top bar and the profile menu. Headless Edge cannot render narrower than about 500 px, so the phone check was at 520 px.
+
+**Differs from the spec, or chosen here:**
+- Placeholders say which step builds the screen. They are visible to anyone running the app until those steps land.
+- The mock starts seeded, as in v1, so a fresh browser opens on the sample profiles rather than Welcome. With the real services, a fresh device goes to Welcome.
+- "Add a profile" reuses Welcome (`?new=profile`) instead of a separate page.
+
+**Open questions:** none new. The questions of step 1 still stand.

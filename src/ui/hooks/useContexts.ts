@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import type { CareVaultServices } from '../../contract/legacy/services';
+import type { CareVaultServices } from '../../contract/services';
 import {
   CloudNoticeContext,
   ProfileContext,
