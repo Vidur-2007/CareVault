@@ -33,8 +33,13 @@ export function attentionItems(input: {
   const items: AttentionItem[] = [];
   const documents = [...input.documents].sort((a, b) => Date.parse(b.addedAt) - Date.parse(a.addedAt) || a.id.localeCompare(b.id));
 
+  // "Yes, it is this profile's" is recorded on the patient-name evidence (contract request UI v2-7):
+  // the name on the paper stays a mismatch, but the question has been answered.
+  const nameAnswered = new Set(
+    input.evidence.filter((e) => e.field === 'patient_name' && (e.status === 'user_confirmed' || e.status === 'user_corrected')).map((e) => e.documentId),
+  );
   for (const doc of documents) {
-    if (doc.source === 'email' && doc.patientMatch === 'mismatch') {
+    if (doc.source === 'email' && doc.patientMatch === 'mismatch' && !nameAnswered.has(doc.id)) {
       items.push({
         id: `unassigned_import:${doc.id}`,
         kind: 'unassigned_import',

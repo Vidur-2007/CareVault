@@ -23,11 +23,14 @@ export interface CareVaultServices {
     list(profileId: T.ID): Promise<T.DocumentRecord[]>;           // newest clinical date first, undated last
     update(id: T.ID, patch: Partial<Pick<T.DocumentRecord,
       'kind' | 'title' | 'clinicalDate' | 'prescriberId' | 'facility' | 'tags' | 'testNames' | 'starred'>>):
-      Promise<T.DocumentRecord>;                                   // clinicalDate set here makes dateSource 'user'
+      Promise<T.DocumentRecord>;                                   // clinicalDate: the printed date (its document_date
+                                                                   // evidence) keeps dateSource 'document' and confirms it;
+                                                                   // another date makes it 'user' and corrects the evidence
     file(id: T.ID): Promise<T.DocumentRecord & { blob: Blob }>;    // also works for the shipped sample documents
     fileRecord(id: T.ID): Promise<T.DocumentRecord>;               // marks it 'filed'
     remove(id: T.ID): Promise<{ snapshotsMentioning: T.ID[]; activeShares: T.ShareLink[] }>;
-    assignProfile(id: T.ID, profileId: T.ID): Promise<T.DocumentRecord>;  // for unassigned email imports
+    assignProfile(id: T.ID, profileId: T.ID): Promise<T.DocumentRecord>;  // for unassigned email imports;
+                                                                          // confirms the patient_name evidence
     fields(id: T.ID): Promise<T.FieldEvidence[]>;
     reviewFields(id: T.ID, decisions: T.FieldDecision[]): Promise<T.FieldEvidence[]>;
   };
@@ -39,7 +42,9 @@ export interface CareVaultServices {
 
   prescriptions: {
     // Stores the prescription lines. Never changes the routine. Returns the proposal,
-    // or null when nothing differs from the routine.
+    // or null when nothing differs from the routine. The field evidence is the source of truth:
+    // flagged or unknown values keep their evidence value whatever `lines` says; an 'extracted'
+    // value becomes user_confirmed, or user_corrected with the line's value if it was edited.
     save(documentId: T.ID, prescriberId: T.ID, lines: T.ExtractedLine[]):
       Promise<{ lines: T.PrescriptionLine[]; proposal: T.RoutineProposal | null }>;
     lines(documentId: T.ID): Promise<T.PrescriptionLine[]>;

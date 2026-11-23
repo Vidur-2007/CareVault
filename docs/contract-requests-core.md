@@ -41,3 +41,17 @@ Request 1 is resolved in contract v2: `profiles.addPrescriber(profileId, { name,
 - the golden test compares every field of every row in both states. It also checks that the blocked line cannot reach the routine: `started` is refused, a batch that includes it is refused as a whole, and no event is written.
 
 **Convention recorded at the same time:** `routine.history` and `routine.profileHistory` return events newest first. This is noted in `src/contract/services.ts`, overview 8.2 and UI spec 7, so the mock on laptop B follows it.
+
+## Answers to the UI requests (core, before the merge checkpoint)
+
+Agreed with the human. The contract comments and overview 9.1 and 9.2 are updated to match, and the core implements each answer.
+
+| UI request | Answer | In core |
+| --- | --- | --- |
+| v2-1 value formats; `lines` or evidence | **Accepted.** The formats are written on `FieldEvidence.value`, and the evidence is the source of truth. | `prescriptions.save`, as the UI proposed. A flagged or unknown value cannot be replaced through `lines`. One addition: an `extracted` value edited in the line form is recorded as `user_corrected` with the line's value (not ignored), so an edit made there is kept and audited. |
+| v2-2 retake the photo | **Deferred** to after the checkpoint (needs a new method and several originals per record). The UI leaves the action out, its own default. | None. |
+| v2-3 `medicine_pack` kind | **Agreed, deferred to laptop B after the checkpoint.** Adding the kind changes the UI's `Record<DocumentKind, …>` maps and its `isPack` guess, which are laptop B's files. The core will then classify packs as `medicine_pack`. | None yet. |
+| v2-4 date or patient set by hand | **Accepted.** | `documents.update({ clinicalDate })` corrects the `document_date` evidence (or marks it `unknown` when cleared). `assignProfile` confirms the `patient_name` evidence. |
+| v2-5 `matchedOn` vocabulary | **Accepted**, with the labels core also uses: `'title' \| 'tag' \| 'test name' \| 'facility' \| 'doctor' \| 'specialty' \| 'kind' \| 'date' \| 'starred' \| 'medicine'` (Ask only). | The doctor's name now matches as `doctor` and the specialty as `specialty`. |
+| v2-6 printed date shown as "Date set by you" | **Accepted.** | Accepting the date read from the document keeps `dateSource: 'document'` and confirms its evidence. |
+| v2-7 "Yes, it is this profile's" | **Intended:** `patientMatch` stays `mismatch`, because the paper says another name, and the confirmed `patient_name` evidence records the answer. | **Bug fixed:** the `unassigned_import` attention item now goes away once the patient name is confirmed or corrected. Before, it stayed for good. |

@@ -4,7 +4,8 @@ import { IDS, sampleProfiles, sampleRoutine, sampleVisit } from '../../../contra
 import type { PrescriptionLine, RoutineEvent, RoutineMedicine } from '../../../contract/types';
 import { planDecisions, rebuildWith } from './decide';
 import { buildProposal, matchLine, type ProposalInput } from './proposal';
-import { planHealthAdd, planUndo, routineEvent } from './routine';
+import { planHealthAdd, planUndo, reconcileSavedLines, routineEvent, sameValue } from './routine';
+import type { ExtractedLine, FieldEvidence } from '../../../contract/types';
 
 const M = IDS.medicines;
 const NOW = '2026-11-14T09:00:00.000Z';
@@ -108,5 +109,81 @@ describe('undo and health rules', () => {
     const { add, removeIds } = planHealthAdd([], profile, { kind: 'allergy', text: 'ignored', noneKnown: true, source: 'caregiver_reported', documentId: null }, ctx);
     expect(add).toMatchObject({ kind: 'allergy', noneKnown: true, text: '', profileId: IDS.ramesh });
     expect(removeIds).toEqual([]);
+  });
+});
+
+describe('saving lines against their evidence (UI request v2-1)', () => {
+  const line: ExtractedLine = { lineIndex: 0, productName: 'Aspirin 75 mg', ingredients: [{ name: 'Aspirin', strength: 75, unit: 'mg' }], form: 'tablet', dosesPerDay: 1, instruction: '1 tablet, afternoon', warnings: [] };
+  const ev = (over: Partial<FieldEvidence>): FieldEvidence => ({
+    id: over.id ?? `${over.field}-${over.ingredientIndex ?? 'x'}`, profileId: 'p', documentId: 'd', field: 'medicine_name', lineIndex: 0, ingredientIndex: null, page: 1,
+    raw: null, value: null, status: 'extracted', reasons: [], source: 'ocr', confidence: null, region: null, reviewedAt: null, ...over,
+  });
+
+  it('read values the line still shows are confirmed, numbers compared as numbers', () => {
+    const evidence = [
+      ev({ field: 'medicine_name', value: 'Aspirin 75 mg' }),
+      ev({ field: 'ingredient', ingredientIndex: 0, value: 'aspirin' }),
+      ev({ field: 'strength', ingredientIndex: 0, value: '75.0' }),
+      ev({ field: 'unit', ingredientIndex: 0, value: 'mg' }),
+      ev({ field: 'frequency', value: '1' }),
+      ev({ field: 'instruction', value: ' 1 tablet, afternoon ' }),
+      // An ingredient the line no longer has, and a field no line shows: nothing to compare.
+      ev({ field: 'strength', ingredientIndex: 3, value: '5' }),
+      ev({ field: 'patient_name', value: 'Ramesh Iyer' }),
+      // Another line, and a document-level value: left alone.
+      ev({ id: 'other-line', field: 'medicine_name', lineIndex: 7, value: 'X' }),
+      ev({ id: 'doc-level', field: 'document_date', lineIndex: null, value: '2026-11-13' }),
+    ];
+    const { lines, changed } = reconcileSavedLines([line], evidence, NOW);
+    expect(changed.map((c) => [c.id, c.status])).toEqual(evidence.slice(0, 8).map((e) => [e.id, 'user_confirmed']));
+    expect(lines[0]).toMatchObject({ productName: 'Aspirin 75 mg', dosesPerDay: 1 });
+  });
+
+  it('edits in the line form are corrections, including a frequency cleared or set', () => {
+    const cleared = reconcileSavedLines([{ ...line, dosesPerDay: null }], [ev({ field: 'frequency', value: '1' })], NOW);
+    expect(cleared.changed[0]).toMatchObject({ status: 'user_corrected', value: null });
+    const set = reconcileSavedLines([line], [ev({ field: 'frequency', value: null })], NOW);
+    expect(set.changed[0]).toMatchObject({ status: 'user_corrected', value: '1' });
+    const both = reconcileSavedLines([{ ...line, dosesPerDay: null }], [ev({ field: 'frequency', value: null })], NOW);
+    expect(both.changed[0].status).toBe('user_confirmed');
+  });
+
+  it('flagged and unknown values keep what the evidence says, whatever the line says', () => {
+    const flagged = (over: Partial<FieldEvidence>) => ev({ status: 'needs_verification', ...over });
+    const unknown = (over: Partial<FieldEvidence>) => ev({ status: 'unknown', ...over });
+    const withValues = reconcileSavedLines([line], [
+      flagged({ field: 'medicine_name', value: 'Asp1rin 7? mg' }),
+      flagged({ field: 'ingredient', ingredientIndex: 0, value: 'asp1rin' }),
+      unknown({ field: 'strength', ingredientIndex: 0, value: '5' }),
+      flagged({ field: 'unit', ingredientIndex: 0, value: 'mcg' }),
+      flagged({ field: 'frequency', value: '2' }),
+      flagged({ field: 'instruction', value: '2 tablets' }),
+    ], NOW);
+    expect(withValues.changed).toEqual([]);
+    expect(withValues.lines[0]).toMatchObject({ productName: 'Asp1rin 7? mg', ingredients: [{ name: 'asp1rin', strength: 5, unit: 'mcg' }], dosesPerDay: 2, instruction: '2 tablets' });
+
+    const withoutValues = reconcileSavedLines([line], [
+      flagged({ field: 'medicine_name', raw: 'Asp?rin' }),
+      flagged({ id: 'n2', field: 'medicine_name', lineIndex: 1 }),
+      flagged({ field: 'ingredient', ingredientIndex: 0 }),
+      flagged({ field: 'strength', ingredientIndex: 0 }),
+      flagged({ field: 'unit', ingredientIndex: 0 }),
+      flagged({ field: 'frequency' }),
+      unknown({ field: 'instruction' }),
+    ], NOW);
+    expect(withoutValues.lines[0]).toMatchObject({ productName: 'Asp?rin', ingredients: [{ name: 'Aspirin', strength: 0, unit: 'mg' }], dosesPerDay: null, instruction: '' });
+    const noRaw = reconcileSavedLines([line], [flagged({ field: 'medicine_name' })], NOW);
+    expect(noRaw.lines[0].productName).toBe('Aspirin 75 mg');
+  });
+});
+
+describe('comparing evidence values', () => {
+  it('numbers as numbers, text ignoring outer spaces, and a missing value differs from any text', () => {
+    expect(sameValue('strength', '75', '75.0')).toBe(true);
+    expect(sameValue('strength', '75', null)).toBe(false);
+    expect(sameValue('instruction', ' night ', 'night')).toBe(true);
+    expect(sameValue('instruction', null, 'night')).toBe(false);
+    expect(sameValue('instruction', 'night', null)).toBe(false);
+    expect(sameValue('instruction', null, null)).toBe(true);
   });
 });

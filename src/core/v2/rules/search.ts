@@ -8,6 +8,7 @@ export const MATCHED = {
   testName: 'test name',
   facility: 'facility',
   doctor: 'doctor',
+  specialty: 'specialty',
   kind: 'kind',
   date: 'date',
   starred: 'starred',
@@ -43,7 +44,7 @@ export function matchText(text: string, doc: DocumentRecord, prescriber: Prescri
     ...doc.tags.map((t): [string, string] => [MATCHED.tag, t]),
     ...doc.testNames.map((t): [string, string] => [MATCHED.testName, t]),
     ...(doc.facility ? [[MATCHED.facility, doc.facility] as [string, string]] : []),
-    ...(prescriber ? [[MATCHED.doctor, `${prescriber.name} ${prescriber.specialty}`] as [string, string]] : []),
+    ...(prescriber ? [[MATCHED.doctor, prescriber.name] as [string, string], [MATCHED.specialty, prescriber.specialty] as [string, string]] : []),
   ];
   const phrase = lower(text.trim());
   const whole = fields.filter(([, value]) => lower(value).includes(phrase)).map(([label]) => label);

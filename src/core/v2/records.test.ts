@@ -73,6 +73,7 @@ describe('search', () => {
     expect(ids(await search('kavita'))).toEqual([D.raoLatest, D.raoPrevious]);
     expect((await search('kavita'))[0].matchedOn).toEqual(['doctor']);
     expect(ids(await search('diabetology'))).toEqual([D.menon]);
+    expect((await search('diabetology'))[0].matchedOn).toEqual(['tag', 'specialty']);
     expect(ids(await search('lakeside hba1c'))).toEqual([D.hba1c]);
     expect((await search('lakeside hba1c'))[0].matchedOn).toEqual(['facility', 'title', 'test name']);
     expect(await search('aspirin')).toEqual([]);
@@ -248,5 +249,65 @@ describe('attention', () => {
     await services.routine.decide(proposal!.id, proposal!.rows.filter((r) => r.asked).map((r) => ({ rowId: r.id, choice: 'skip' as const })), proposal!.routineRevision);
     await services.routine.dismiss(proposal!.id);
     expect(await services.attention.list(IDS.ramesh)).toEqual(before);
+  });
+});
+
+describe('answers recorded on the evidence (UI requests v2-4, v2-6, v2-7)', () => {
+  async function withDateRead(value: string | null, status: FieldEvidence['status'] = 'extracted') {
+    const { record } = await services.documents.add(IDS.ramesh, pdf('report'), { source: 'upload', title: 'Report' });
+    const date: FieldEvidence = {
+      id: `ev-date-${record.id}`, profileId: IDS.ramesh, documentId: record.id, field: 'document_date', lineIndex: null, ingredientIndex: null, page: 1,
+      raw: value ?? '3?/11/2026', value, status, reasons: [], source: 'pdf_text', confidence: null, region: null, reviewedAt: null,
+    };
+    await db.fieldEvidence.put(date);
+    return { id: record.id, evidenceId: date.id };
+  }
+  const evidenceOf = async (id: string, evidenceId: string) => (await services.documents.fields(id)).find((f) => f.id === evidenceId)!;
+
+  it('accepting the printed date keeps it "from the document" and confirms it', async () => {
+    const { id, evidenceId } = await withDateRead('2026-11-02');
+    expect(await services.documents.update(id, { clinicalDate: '2026-11-02' })).toMatchObject({ clinicalDate: '2026-11-02', dateSource: 'document' });
+    expect(await evidenceOf(id, evidenceId)).toMatchObject({ status: 'user_confirmed', value: '2026-11-02' });
+    // Saving the same date again changes nothing.
+    expect((await services.documents.update(id, { clinicalDate: '2026-11-02' })).dateSource).toBe('document');
+  });
+
+  it('another date is the user’s, and corrects the evidence; clearing it leaves it unknown', async () => {
+    const { id, evidenceId } = await withDateRead('2026-11-02');
+    expect((await services.documents.update(id, { clinicalDate: '2026-11-03' })).dateSource).toBe('user');
+    expect(await evidenceOf(id, evidenceId)).toMatchObject({ status: 'user_corrected', value: '2026-11-03' });
+    expect((await services.documents.update(id, { clinicalDate: '2026-11-03' })).dateSource).toBe('user');
+    expect((await services.documents.update(id, { clinicalDate: null })).dateSource).toBe('unknown');
+    expect(await evidenceOf(id, evidenceId)).toMatchObject({ status: 'unknown', value: null });
+  });
+
+  it('an unreadable printed date, typed by the user, clears "Needs attention"', async () => {
+    const { id, evidenceId } = await withDateRead(null, 'needs_verification');
+    expect((await services.attention.list(IDS.ramesh)).some((i) => i.id === `unverified_fields:${id}`)).toBe(true);
+    await services.documents.update(id, { clinicalDate: '2026-11-03' });
+    expect(await evidenceOf(id, evidenceId)).toMatchObject({ status: 'user_corrected', value: '2026-11-03' });
+    expect((await services.attention.list(IDS.ramesh)).some((i) => i.id === `unverified_fields:${id}`)).toBe(false);
+  });
+
+  it('assigning a profile confirms the patient name; "Yes, it is this profile’s" clears the attention item but keeps the mismatch', async () => {
+    const make = async () => {
+      const { record } = await services.documents.add(IDS.ramesh, pdf(`mail ${Math.random()}`), { source: 'email', title: 'Report' });
+      await db.documents.update(record.id, { patientMatch: 'mismatch', patientNameRead: 'R. Iyer Sr' });
+      const name: FieldEvidence = {
+        id: `ev-name-${record.id}`, profileId: IDS.ramesh, documentId: record.id, field: 'patient_name', lineIndex: null, ingredientIndex: null, page: 1,
+        raw: 'R. Iyer Sr', value: 'R. Iyer Sr', status: 'needs_verification', reasons: ['Another patient'], source: 'pdf_text', confidence: null, region: null, reviewedAt: null,
+      };
+      await db.fieldEvidence.put(name);
+      return { id: record.id, nameId: name.id };
+    };
+    const moved = await make();
+    await services.documents.assignProfile(moved.id, IDS.lakshmi);
+    expect((await services.documents.fields(moved.id))[0]).toMatchObject({ status: 'user_confirmed', profileId: IDS.lakshmi });
+
+    const kept = await make();
+    expect((await services.attention.list(IDS.ramesh)).map((i) => i.id)).toContain(`unassigned_import:${kept.id}`);
+    await services.documents.reviewFields(kept.id, [{ evidenceId: kept.nameId, action: 'confirm' }]);
+    expect((await services.attention.list(IDS.ramesh)).map((i) => i.kind)).toEqual(['possible_duplicate_ingredient']);
+    expect((await services.documents.get(kept.id)).patientMatch).toBe('mismatch');
   });
 });

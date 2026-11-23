@@ -56,6 +56,7 @@ import {
   planSetStatus,
   planUndo,
   planUpdate,
+  reconcileSavedLines,
   refreshLines,
   writesRoutine,
   type RoutinePlan,
@@ -356,7 +357,7 @@ export function createRealServicesV2(options: RealServicesV2Options = {}): CareV
     for (const lineIndex of new Set(evidence.map((e) => e.lineIndex).filter((i): i is number => i !== null))) {
       assertLineReviewable(evidence, lineIndex);
     }
-    await repos.fieldEvidence.bulkPut(confirmExtracted(evidence, null, nowIso()));
+    await repos.fieldEvidence.bulkPut(confirmExtracted(evidence, nowIso()));
   }
 
   const services: CareVaultServices = {
@@ -433,6 +434,21 @@ export function createRealServicesV2(options: RealServicesV2Options = {}): CareV
             }
             next.clinicalDate = patch.clinicalDate as ISODate | null;
             next.dateSource = patch.clinicalDate === null ? 'unknown' : 'user';
+            // Contract requests UI v2-4 and v2-6: the date's evidence records the answer. Accepting
+            // the printed date keeps it "from the document"; any other date is the user's.
+            const read = (await repos.fieldEvidence.byDocument(id)).filter((e) => e.field === 'document_date');
+            const reviewedAt = nowIso();
+            for (const e of read) {
+              const printed = e.value !== null && e.value === patch.clinicalDate && (e.status === 'extracted' || e.status === 'needs_verification' || e.status === 'user_confirmed');
+              if (printed) {
+                next.dateSource = 'document';
+                if (e.status !== 'user_confirmed') await repos.fieldEvidence.put({ ...e, status: 'user_confirmed', reviewedAt });
+              } else if (patch.clinicalDate === null) {
+                await repos.fieldEvidence.put({ ...e, value: null, status: 'unknown', reviewedAt });
+              } else if (!(e.status === 'user_corrected' && e.value === patch.clinicalDate)) {
+                await repos.fieldEvidence.put({ ...e, value: patch.clinicalDate, status: 'user_corrected', reviewedAt });
+              }
+            }
           }
           if (patch.prescriberId !== undefined) {
             if (patch.prescriberId !== null) await prescriberOf(doc.profileId, patch.prescriberId);
@@ -495,7 +511,12 @@ export function createRealServicesV2(options: RealServicesV2Options = {}): CareV
           if (doc.profileId === profileId) return doc;
           // A doctor belongs to one profile, so the link to the old profile's doctor is dropped.
           const moved: DocumentRecord = { ...doc, profileId, prescriberId: null, patientMatch: 'not_found' };
-          for (const evidence of await repos.fieldEvidence.byDocument(id)) await repos.fieldEvidence.put({ ...evidence, profileId });
+          // Choosing whose record it is answers the patient-name question (contract request UI v2-4).
+          const reviewedAt = nowIso();
+          for (const evidence of await repos.fieldEvidence.byDocument(id)) {
+            const answered = evidence.field === 'patient_name' && evidence.status !== 'user_corrected' ? { status: 'user_confirmed' as const, reviewedAt } : {};
+            await repos.fieldEvidence.put({ ...evidence, profileId, ...answered });
+          }
           for (const proposal of await repos.proposals.byDocument(id)) await repos.proposals.delete(proposal.id);
           return repos.documents.put(moved);
         }),
@@ -588,14 +609,16 @@ export function createRealServicesV2(options: RealServicesV2Options = {}): CareV
             if (!line.productName.trim()) throw new ServiceError('unknown', 'Each line needs the medicine name.');
           }
 
-          // The values the user saw in the line form and did not flag count as reviewed.
+          // The evidence is the source of truth (contract request UI v2-1): values the user saw in
+          // the line form count as reviewed, edits there count as corrections, and flagged values
+          // keep what the evidence says, whatever the lines passed in say.
           const evidence = await repos.fieldEvidence.byDocument(documentId);
-          const confirmed = input.flatMap((l) => confirmExtracted(evidence, l.lineIndex, nowIso()));
-          await repos.fieldEvidence.bulkPut(confirmed);
-          const reviewed = evidence.map((e) => confirmed.find((c) => c.id === e.id) ?? e);
+          const { lines: reconciled, changed } = reconcileSavedLines(input, evidence, nowIso());
+          await repos.fieldEvidence.bulkPut(changed);
+          const reviewed = evidence.map((e) => changed.find((c) => c.id === e.id) ?? e);
 
           const existing = await repos.prescriptionLines.byDocument(documentId);
-          const lines: PrescriptionLine[] = [...input]
+          const lines: PrescriptionLine[] = [...reconciled]
             .sort((a, b) => a.lineIndex - b.lineIndex)
             .map((l) => {
               const line = {

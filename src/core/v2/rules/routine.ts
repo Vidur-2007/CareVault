@@ -3,6 +3,7 @@
 // records the entry before and after, so it can be undone.
 import {
   ServiceError,
+  type ExtractedLine,
   type FieldEvidence,
   type HealthEntry,
   type ID,
@@ -17,7 +18,7 @@ import {
   type RoutineStatus,
 } from '../../../contract/types';
 import { describeChange } from '../../rules/diff';
-import { normalizeIngredients } from '../../rules/normalize';
+import { normalizeIngredientName, normalizeIngredients } from '../../rules/normalize';
 import { applyEvidence, lineVerified } from './verify';
 
 export interface RuleContextV2 {
@@ -118,11 +119,82 @@ export function assertLineReviewable(evidence: readonly FieldEvidence[], lineInd
   }
 }
 
-/** Marks the reviewed line's 'extracted' fields as confirmed by the user. */
-export function confirmExtracted(evidence: readonly FieldEvidence[], lineIndex: number | null, now: ISODateTime): FieldEvidence[] {
-  return evidence
-    .filter((e) => e.status === 'extracted' && (lineIndex === null || e.lineIndex === lineIndex))
-    .map((e) => ({ ...e, status: 'user_confirmed' as const, reviewedAt: now }));
+/** Marks every 'extracted' value as confirmed by the user, who saw them all (a pack photo). */
+export function confirmExtracted(evidence: readonly FieldEvidence[], now: ISODateTime): FieldEvidence[] {
+  return evidence.filter((e) => e.status === 'extracted').map((e) => ({ ...e, status: 'user_confirmed' as const, reviewedAt: now }));
+}
+
+/** The value a line shows for one evidenced field, in the evidence's own format (overview 9.2). */
+function lineValue(line: ExtractedLine, e: FieldEvidence): string | null | undefined {
+  const ingredient = e.ingredientIndex === null ? undefined : line.ingredients[e.ingredientIndex];
+  switch (e.field) {
+    case 'medicine_name': return line.productName.trim();
+    case 'ingredient': return ingredient && normalizeIngredientName(ingredient.name);
+    case 'strength': return ingredient && String(ingredient.strength);
+    case 'unit': return ingredient?.unit;
+    case 'frequency': return line.dosesPerDay === null ? null : String(line.dosesPerDay);
+    case 'instruction': return line.instruction.trim();
+    default: return undefined;
+  }
+}
+
+/** Two evidence values are the same: numbers compared as numbers, text ignoring outer spaces. */
+export const sameValue = (field: FieldEvidence['field'], a: string | null, b: string | null) =>
+  a === b || (field === 'strength' || field === 'frequency' ? a !== null && b !== null && Number(a) === Number(b) : (a ?? '').trim() === (b ?? '').trim());
+
+/**
+ * Contract request UI v2-1: the evidence is the source of truth for every critical field that
+ * has evidence. Saving a prescription reconciles the lines passed in with it:
+ * - a value the user already confirmed or corrected keeps its evidence value;
+ * - a value still flagged ('needs_verification') or left 'unknown' keeps its evidence value,
+ *   whatever the lines say, so an unchecked value can never be slipped in by the caller;
+ * - an 'extracted' value the user saw in the line form becomes 'user_confirmed', or
+ *   'user_corrected' with the line's value when the user changed it there.
+ * Fields without evidence come from the lines. Returns the lines rebuilt from the evidence
+ * and the evidence rows that changed.
+ */
+export function reconcileSavedLines(
+  input: readonly ExtractedLine[],
+  evidence: readonly FieldEvidence[],
+  now: ISODateTime,
+): { lines: ExtractedLine[]; changed: FieldEvidence[] } {
+  const byIndex = new Map(input.map((l) => [l.lineIndex, l]));
+  const changed: FieldEvidence[] = [];
+  for (const e of evidence) {
+    const line = e.lineIndex === null ? undefined : byIndex.get(e.lineIndex);
+    if (!line || e.status !== 'extracted') continue;
+    const shown = lineValue(line, e);
+    const edited = shown !== undefined && !sameValue(e.field, shown, e.value);
+    changed.push(edited ? { ...e, value: shown, status: 'user_corrected', reviewedAt: now } : { ...e, status: 'user_confirmed', reviewedAt: now });
+  }
+  const merged = evidence.map((e) => changed.find((c) => c.id === e.id) ?? e);
+
+  // Flagged and unknown values: the line carries what the evidence says, not what was passed.
+  const flagged = (line: ExtractedLine, field: FieldEvidence['field'], ingredientIndex: number | null) =>
+    merged.find((e) => e.lineIndex === line.lineIndex && e.field === field && e.ingredientIndex === ingredientIndex && (e.status === 'needs_verification' || e.status === 'unknown'));
+  const forced = input.map((line) => {
+    const name = flagged(line, 'medicine_name', null);
+    const frequency = flagged(line, 'frequency', null);
+    const instruction = flagged(line, 'instruction', null);
+    return {
+      ...line,
+      productName: name ? name.value ?? name.raw ?? line.productName : line.productName,
+      dosesPerDay: frequency ? (frequency.value === null ? null : Number(frequency.value)) : line.dosesPerDay,
+      instruction: instruction ? instruction.value ?? '' : line.instruction,
+      ingredients: line.ingredients.map((ingredient, i) => {
+        const strength = flagged(line, 'strength', i);
+        const ingredientName = flagged(line, 'ingredient', i);
+        const unit = flagged(line, 'unit', i);
+        return {
+          name: ingredientName?.value ?? ingredient.name,
+          // An unreadable strength is 0, as when it was read: its evidence says it is not known.
+          strength: strength ? (strength.value === null ? 0 : Number(strength.value)) : ingredient.strength,
+          unit: (unit?.value as typeof ingredient.unit | null | undefined) ?? ingredient.unit,
+        };
+      }),
+    };
+  });
+  return { lines: applyEvidence(forced, merged), changed };
 }
 
 /** A line is verified when it has no evidence (typed by the user) or all of it was reviewed. */

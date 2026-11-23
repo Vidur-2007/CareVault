@@ -404,6 +404,38 @@ describe('the verification gate', () => {
     void proposal;
   });
 
+  it('the evidence wins (UI request v2-1): a flagged value cannot be slipped in through the lines', async () => {
+    const documentId = await newPrescription();
+    const strength: FieldEvidence = {
+      id: 'ev-s', profileId: IDS.ramesh, documentId, field: 'strength', lineIndex: 0, ingredientIndex: 0, page: 1,
+      raw: '7? mg', value: null, status: 'needs_verification', reasons: ['Unclear digit'], source: 'ocr', confidence: 0.4, region: null, reviewedAt: null,
+    };
+    const name: FieldEvidence = { ...strength, id: 'ev-n', field: 'medicine_name', ingredientIndex: null, raw: 'Aspirin 7? mg', value: 'Aspirin 7? mg', status: 'extracted', reasons: [] };
+    await db.fieldEvidence.bulkPut([strength, name]);
+    // The caller claims 75 mg, with the name it was read with.
+    const { lines, proposal } = await review([{ ...ASPIRIN, lineIndex: 0, productName: 'Aspirin 7? mg' }], P.rao, documentId);
+    expect(lines[0]).toMatchObject({ productName: 'Aspirin 7? mg', ingredients: mg('aspirin', 0), verified: false });
+    const row = lineRow(proposal!, 'Aspirin 7? mg');
+    expect(await codeOf(decide(proposal!, [row, 'started']))).toBe('verification_required');
+    expect((await services.documents.fields(documentId)).find((f) => f.id === 'ev-s')).toMatchObject({ status: 'needs_verification', value: null });
+  });
+
+  it('the evidence wins: a value edited in the line form is recorded as the user’s correction', async () => {
+    const documentId = await newPrescription();
+    const base: FieldEvidence = {
+      id: 'ev-i', profileId: IDS.ramesh, documentId, field: 'instruction', lineIndex: 0, ingredientIndex: null, page: 1,
+      raw: '1-0-0', value: '1 tablet, morning', status: 'extracted', reasons: [], source: 'pdf_text', confidence: null, region: null, reviewedAt: null,
+    };
+    const strength: FieldEvidence = { ...base, id: 'ev-st', field: 'strength', ingredientIndex: 0, raw: '10 mg', value: '10' };
+    await db.fieldEvidence.bulkPut([base, strength]);
+    const { lines } = await review([{ ...AMLODIPINE, instruction: '1 tablet, night' }], P.rao, documentId);
+    expect(lines[0]).toMatchObject({ instruction: '1 tablet, night', verified: true });
+    const fields = await services.documents.fields(documentId);
+    expect(fields.find((f) => f.id === 'ev-i')).toMatchObject({ status: 'user_corrected', value: '1 tablet, night' });
+    // Unchanged values are confirmed as they were read.
+    expect(fields.find((f) => f.id === 'ev-st')).toMatchObject({ status: 'user_confirmed', value: '10' });
+  });
+
   it('routine.add from a pack photo is gated by its document', async () => {
     const { record } = await services.documents.add(IDS.ramesh, new Blob(['%PDF-1.4 pack'], { type: 'application/pdf' }), { source: 'camera' });
     const flagged: FieldEvidence = {

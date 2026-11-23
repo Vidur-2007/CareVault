@@ -742,3 +742,34 @@ No real key goes in the repository. Values go into the hosting dashboard, and in
    2. Open the link on phone B, on mobile data and not signed in to anything. The same passport appears.
    3. On phone A, revoke the link. Reloading on phone B shows "This link was revoked."
    4. Repeat after the merge checkpoint, when the v2 app is on `main`.
+
+### Step 12: ready for the merge checkpoint
+
+**Laptop B's contract requests answered** (see `docs/contract-requests-core.md`): v2-1, v2-4, v2-5, v2-6 and v2-7 are implemented in core; v2-2 is deferred; v2-3 is agreed but deferred to laptop B, because it changes UI files. New tests:
+- evidence wins over the lines on save, including an edit in the line form becoming a correction;
+- accepting, changing and clearing a date;
+- assigning a profile;
+- "Yes, it is this profile's" clearing the attention item;
+- the `specialty` label;
+- the reconcile rule's edge paths.
+
+**Coverage:**
+- `src/core/rules` (v1): 100% of branches (411 of 411).
+- `src/core/v2/rules`, `share`, `gmail`, `reading/parse.ts` and `reading/benchmark.ts`: 100% (1166 of 1166).
+
+`npm run check`: 52 files, 834 tests, build passing. `eslint` clean.
+
+**The ten acceptance tests of overview section 13:**
+
+| # | Acceptance test | Automated in core | Needs the UI (walked at the checkpoint) |
+| --- | --- | --- | --- |
+| 1 | "7? mg" + "Yes, started" refused until verified; the passport shows the corrected value | `golden.test.ts` (real reader on the demo PDF, refusal, correction, decisions), `review.test.ts` (gate) | Check the values beside the original; the blocked row in Review changes |
+| 2 | Omitted medicine, question skipped: unchanged, never raised again | `review.test.ts` (skip, then reopen), `records.test.ts` (a skipped or dismissed review never appears in attention) | Home shows nothing about it |
+| 3 | Same prescription saved twice: same proposal, no events | `review.test.ts` | None |
+| 4 | v1 database and v1 backup brought to v2 with nothing lost | `db/db.test.ts` (Dexie upgrade in place), `db/migrate.test.ts` (every mapping of 9.9), `backup/backup.test.ts` (v1 backup) | The batch review of legacy medicines |
+| 5 | Two profiles with shares: no cross QR, `sharing.list` per profile | `server/e2e-v2.test.ts`, `passport.test.ts` | The QR printed on each passport |
+| 6 | Email per profile; upload-then-email duplicate; two PDFs in one email | `gmail/gmail.test.ts` | Real Gmail account (needs the OAuth client) |
+| 7 | Snapshot unchanged after a routine edit and a deleted original | `passport.test.ts` | "Original removed on …" on the snapshot page |
+| 8 | No cloud without consent; locked PDF kept, `locked_pdf` | `reading/reading.test.ts`, `createRealServicesV2.test.ts` | The consent prompt |
+| 9 | Each QR opens its snapshot; wrong key, revoked, expired | `server/e2e-v2.test.ts` (real routes) | The shared page's states; second device on the public URL |
+| 10 | `npm run check` passes on `main` after the merge | Run at the merge | None |
