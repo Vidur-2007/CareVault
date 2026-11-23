@@ -175,6 +175,37 @@ describe('batches and notifications', () => {
     expect(listener).toHaveBeenCalledTimes(2);
   });
 
+  it('a batch that only reads notifies nobody (a screen that re-reads on each notification would loop)', async () => {
+    await loadSampleProfiles(repos);
+    await tick();
+    const listener = vi.fn();
+    notifier.subscribe(listener);
+    const read = await repos.transaction(async () => (await repos.routine.byProfile(IDS.ramesh)).length);
+    await tick();
+    expect(read).toBeGreaterThan(0);
+    expect(listener).not.toHaveBeenCalled();
+    // The same kind of batch that writes does notify, once.
+    await repos.transaction(async () => {
+      await repos.routine.byProfile(IDS.ramesh);
+      await repos.routineRevision.bump(IDS.ramesh);
+    });
+    await tick();
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('two batches at once: a read-only one never hides the other one’s write', async () => {
+    await loadSampleProfiles(repos);
+    await tick();
+    const listener = vi.fn();
+    notifier.subscribe(listener);
+    await Promise.all([
+      repos.transaction(async () => repos.routine.byProfile(IDS.ramesh)),
+      repos.transaction(async () => repos.routineRevision.bump(IDS.ramesh)),
+    ]);
+    await tick();
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
   it('clearAll empties every table', async () => {
     await loadSampleProfiles(repos);
     await repos.clearAll();
