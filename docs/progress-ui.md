@@ -384,3 +384,94 @@ Tests: 163 on `feat/ui`. On the trial merge, 485 pass; only the build step fails
 - **Note:** the demo prescription PDF (`rx-rao-2026-11-13.pdf`) and Lakshmi's thyroid PDF are not in `public/sample-docs/` yet (laptop A).
 
 **Working rule noted.** Overview §2 says commits, pull requests and files carry no assistant attribution. From this step on, commit messages are only `ui: <what>`.
+
+### Step 1: mock services v2 (2026-11-23)
+
+**What was built.** The Phase 0 compatibility mock is replaced by an in-memory mock of every method of contract v2. The export is still `createMockServicesV2` (with `MockV2Options`), so `src/services/index.ts` is unchanged. The v1 app and the v1 mock are untouched. The code lives in `src/ui/mock/v2/`:
+- `createMockServicesV2.ts`: the services, the 300–800 ms delay, the failure switch, cloned results and a debounced `subscribe`;
+- `state.ts`: the tables, seeded from the v2 sample case;
+- `routine.ts`: revisions, events, the verification gate, proposals, `decide`, undo and totals;
+- `passport.ts`: the live passport and attention items;
+- `search.ts`: `records.search` and the deterministic `records.ask`;
+- `reading.ts`: the reading scenarios and the synthetic Gmail inbox;
+- `migrate.ts`: v1 mock backups mapped per overview §9.9;
+- `text.ts`: small helpers (matching, units, dates, names, SHA-256).
+
+**Overview §9, in simple form:**
+- **Documents:**
+  - the original is stored first, as `pending_review`, with a real SHA-256;
+  - exact duplicates are found within the same profile only;
+  - `remove` deletes the file, lines, evidence and proposal, sets `removedAt` in the snapshots that list the document, and returns those snapshots' active shares;
+  - `assignProfile` moves the record and its evidence.
+- **Field verification:**
+  - `reviewFields` confirms, corrects or leaves a value unknown;
+  - re-reading keeps every human decision;
+  - a line is verified only when all its evidence is `user_confirmed` or `user_corrected`;
+  - `started`, `not_started`, `started_new` and `routine.add` with a `documentId` are refused with `verification_required` while the line is unverified.
+- **Proposals:**
+  - all row kinds (`new`, `changed`, `same`, `not_mentioned` for the same prescriber only, passive entries, `uncertain_match`), in the spec order, with the choices of the table;
+  - every effect of the table, with events that record `before` and `after`;
+  - `ask_doctor` adds a question to the next visit;
+  - `same_medicine` and `different_medicine` offer the row again;
+  - stale protection through a per-profile revision;
+  - idempotent decisions and saves;
+  - dismiss and reopen with `proposalFor`;
+  - undo, refused with `stale` after a later change to the same entry.
+- **Totals and attention:** totals follow §9.5 (taking and uncertain entries; mass units converted; incomplete totals give 0). All four attention kinds are built.
+- **Passport and snapshots:**
+  - the spec order of current medicines;
+  - unconfirmed entries (uncertain and legacy-pending);
+  - recent changes over the last 90 days;
+  - duplicate flags;
+  - snapshots that are frozen and reused when identical;
+  - shares bound to a snapshot, listed per profile, with `listUnowned` for v1 links.
+- **Search and Ask:** search uses every `RecordQuery` field and fills `matchedOn`. Ask understands latest / last N / first, kinds, test names, a doctor by name or specialty, a facility, years, months and "last year", questions and medicines. Anything else is `understood: false` with a hint.
+- **`todayFor`:** the sample profiles stay on 14 Nov 2026; new profiles use the device date.
+- **Gmail and backup:**
+  - **Gmail:** a synthetic inbox with one email carrying two reports and one email for another patient. `alreadyImported` is tracked per profile.
+  - **Backup:** a JSON backup with a passphrase check (including file contents). v1 mock backups are mapped per §9.9.
+
+**Reading scenarios** (chosen by file name, documented at the top of `reading.ts`):
+- **The demo prescription** (`rx-rao-2026-11-13.pdf`): Aspirin's strength reads "7? mg" as `needs_verification` ("Unclear digit"). Correcting it to 75 makes the line "Aspirin 75 mg".
+- **A photo:** a Dolo 650 pack; the OCR'd strength and unit need a look, and the frequency is not on the pack. With `blurry` in the name, the photo needs the cloud reader.
+- **Reports** (`lipid`, `hba1c`, `thyroid`, `ecg`, `kidney`, `cbc`, `x-ray`): dated from the file name.
+- **Modifiers in the name:** `locked` gives a password-protected PDF, `pages` reads 2 of 5 pages, and `mismatch` puts another patient's name on it.
+- **The seeded documents:** their stored details and lines, with no evidence.
+
+**Failure switch** (`localStorage.cvMockFail`, a comma list):
+- a group name (`profiles`, `documents`, `reading`, `prescriptions`, `routine`, `health`, `attention`, `records`, `visits`, `passport`, `sharing`, `gmail`, `backup`, `settings`) or `all` makes those calls reject with `network`;
+- `stale` makes `decide` and `undo` reject with `stale`;
+- `locked` makes reading any PDF reject with `locked_pdf`;
+- `cloud_consent` rejects reading unless `allowCloud` is true; with it, reading uses the cloud engine and every field needs verification;
+- `verification` makes every value-writing routine change from a document reject with `verification_required`.
+
+**Tests.**
+- `createMockServicesV2.test.ts` (22 tests) checks every value in fixtures `expected`:
+  - Ramesh's routine statuses, document order, totals, attention, passport, searches and Ask;
+  - Lakshmi's passport, totals, attention and documents, and that nothing crosses between profiles;
+  - the demo prescription end to end: the reading; the five rows with kinds, entries, `asked` and `blockedByVerification`; `passiveNotMentionedCount`; the gate; the verified lines after the correction; the three decisions; the state after them; idempotence; stale.
+  - It also covers duplicates, snapshots and shares, undo, the pack gate, Gmail, backup and v1 migration.
+- `failureSwitches.test.ts` (9 tests) has one test per switch, plus reading the switch from `localStorage` and the default delay.
+- `npm run check` passes: 36 test files, 534 tests, build OK. Lint is clean.
+
+**Where the mock differs from the spec, or had to choose:**
+1. **The Aspirin row in `expected.demoPrescription.proposalRows`** has `lineProductName: 'Aspirin 75 mg'` together with `blockedByVerification: true`. These cannot hold at the same moment: before the check the strength is unknown. The test checks the row in two phases. Before the check, it compares kinds, entries, `asked` and `blocked`, and the line reads "Aspirin 7? mg". After correcting the strength to 75, it compares the product names. Laptop A's golden test meets the same question.
+2. **A line with no field evidence counts as verified.** These are lines typed by the user or seeded; overview §9.2 only speaks of lines with evidence.
+3. **v2-1 is built provisionally as proposed.** Evidence values use the proposed formats, such as strength `"75"` and frequency `"1"`. Reviewed evidence wins over the values passed to `prescriptions.save` and `routine.add`.
+4. **v2-4 is built provisionally as proposed.** A date set with `documents.update` marks the date evidence `user_corrected` (or `unknown` when cleared). `assignProfile` marks `patient_name` `user_confirmed` and clears the mismatch.
+5. **`still_taking` and `kept_previous` set the entry to `taking`,** as well as refreshing `lastConfirmedAt`. The table says "no change", but leaving an `uncertain` entry unconfirmed after the user said "still taking" contradicts the meaning of `taking`. This needs a word from the core side.
+6. **`reading.read` writes only the facts it read to the record:** the patient name and match, and the pages. Kind, title and date stay with the details step, which writes them through `documents.update`.
+7. **Undo of an event that created an entry removes that entry.** Undo is also refused with `stale` when the event was already undone.
+8. **Changing a row's answer is refused,** except from `skip`. The way to change an applied answer is Undo in the history.
+9. **Mock-only data:**
+   - one seeded v1 share link (owner unknown), so Settings' "Older share links" can be built;
+   - `gmail.findCandidates` rejects with `not_configured` until `connect()` is called;
+   - backup passphrases need at least 8 characters.
+10. **Ask texts** follow the example form ("Latest report with Lipid profile: 12 Nov 2026, Lakeside Diagnostics."). "First" answers say "earliest in CareVault".
+11. **`matchedOn`** uses the vocabulary proposed in v2-5.
+
+**Open questions:**
+- the Aspirin row in `expected` (point 1);
+- the effect of `still_taking` on `uncertain` entries (point 5);
+- v2-1 to v2-5 are still unanswered;
+- the demo and thyroid PDFs are still missing from `public/sample-docs/`, so the mock serves generated placeholders.
