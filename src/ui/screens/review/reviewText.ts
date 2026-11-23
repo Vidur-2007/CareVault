@@ -11,13 +11,20 @@ export const WRITES_VALUES: ProposalChoice[] = ['started', 'not_started', 'start
 /** Asked rows in the order of the spec: changed, new, not_mentioned, uncertain_match. */
 export const ASKED_ORDER: ProposalRowKind[] = ['changed', 'new', 'not_mentioned', 'uncertain_match'];
 
-export const KIND_PILL: Record<ProposalRowKind, PillSpec> = {
-  changed: { tone: 'amber', label: 'Changed' },
-  new: { tone: 'blue', label: 'New' },
-  not_mentioned: { tone: 'grey', label: 'Not mentioned' },
-  uncertain_match: { tone: 'check', label: 'Possible match' },
-  same: { tone: 'teal', label: 'No change' },
-};
+/** The proposal pills of UI spec section 2. */
+export function kindPill(row: Pick<ProposalRow, 'kind' | 'line' | 'medicine'>): PillSpec {
+  switch (row.kind) {
+    case 'new': return { tone: 'blue', label: 'Newly prescribed' };
+    case 'changed': {
+      const a = row.medicine ? strengthText(row.medicine.ingredients) : null;
+      const b = row.line ? strengthText(row.line.ingredients) : null;
+      return { tone: 'amber', label: a && b && a !== b ? 'Different strength' : 'Different instructions' };
+    }
+    case 'same': return { tone: 'grey', label: 'No change' };
+    case 'not_mentioned': return { tone: 'outline', label: 'Not on this prescription' };
+    default: return { tone: 'amber', label: 'Possible match' };
+  }
+}
 
 /** "Telmisartan 80 mg" → "Telmisartan"; "Aspirin 7? mg" → "Aspirin". Names without a strength are kept. */
 export function baseName(productName: string): string {

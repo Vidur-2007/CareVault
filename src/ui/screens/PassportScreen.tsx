@@ -1,6 +1,6 @@
 // Passport, UI spec 4.8: the live passport, plus the reported routine, which is edited here.
-// Print and Share with QR (4.11) come in step 7; "Save a snapshot" freezes a copy now.
-import { History, Save } from 'lucide-react';
+// Print and Share with QR (4.11) always go through a snapshot, created or reused first.
+import { History, Printer, QrCode as QrIcon, Save } from 'lucide-react';
 import { Link } from 'react-router';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -12,14 +12,17 @@ import { useProfile, useToast } from '../hooks/useContexts';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useServiceAction } from '../hooks/useServiceAction';
 import { useServiceQuery } from '../hooks/useServiceQuery';
+import { CHANGE_LABEL, changeText } from '../lib/changes';
 import { ageFrom, formatDate } from '../lib/format';
+import { ActiveLinks } from './passport/ActiveLinks';
 import { DuplicateCard } from './passport/DuplicateCard';
 import { HealthSection } from './passport/HealthSection';
 import { MedicinesSection } from './passport/MedicinesSection';
 import { snapshotLine } from './passport/passportText';
+import { isActive } from './passport/shareLinks';
+import { usePassportOutputs } from './passport/usePassportOutputs';
 import { VisitSection } from './passport/VisitSection';
 
-const RECENT_KIND = { started: 'Started', changed: 'Changed', stopped: 'Stopped', not_started: 'Not started' } as const;
 const RECENT_TONE = { started: 'blue', changed: 'amber', stopped: 'grey', not_started: 'grey' } as const;
 
 export function PassportScreen() {
@@ -36,6 +39,8 @@ export function PassportScreen() {
   const live = useServiceQuery((s) => s.passport.live(pid), [pid]);
   const snapshots = useServiceQuery((s) => s.passport.snapshots(pid), [pid]);
   const documents = useServiceQuery((s) => s.documents.list(pid), [pid]);
+  const links = useServiceQuery((s) => s.sharing.list(pid), [pid]);
+  const outputs = usePassportOutputs({ profileId: pid });
 
   const save = useServiceAction((s) => s.passport.snapshot(pid, 'manual'), { errorPrefix: 'The snapshot could not be saved' });
 
@@ -57,7 +62,13 @@ export function PassportScreen() {
           {p.caregiverName && <> · Prepared by {p.caregiverName}{p.caregiverRelation ? `, ${p.caregiverRelation}` : ''}</>}
         </p>
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <Button icon={<Printer aria-hidden className="size-5" />} onClick={() => void outputs.print()} loading={outputs.pending}>
+          Print
+        </Button>
+        <Button variant="secondary" icon={<QrIcon aria-hidden className="size-5" />} onClick={() => void outputs.share()}>
+          Share with QR
+        </Button>
         <Button
           variant="secondary"
           icon={<Save aria-hidden className="size-5" />}
@@ -123,7 +134,7 @@ export function PassportScreen() {
               <ul className="flex flex-col gap-2">
                 {recent.map((c, i) => (
                   <li key={`${c.on}-${i}`} className="flex flex-wrap items-baseline justify-between gap-2 rounded-panel bg-surface px-4 py-3">
-                    <span className="flex flex-wrap items-center gap-2 text-ink"><Pill tone={RECENT_TONE[c.kind]}>{RECENT_KIND[c.kind]}</Pill>{c.text}</span>
+                    <span className="flex flex-wrap items-center gap-2 text-ink"><Pill tone={RECENT_TONE[c.kind]}>{CHANGE_LABEL[c.kind]}</Pill>{changeText(c)}</span>
                     <span className="text-secondary text-ink-3">{formatDate(c.on)}</span>
                   </li>
                 ))}
@@ -134,6 +145,14 @@ export function PassportScreen() {
 
         <aside className="flex min-w-0 flex-col gap-6" aria-label="Visit and earlier passports">
           <VisitSection profile={p} visit={visit.data ?? null} prescribers={prescribers} documents={documents.data ?? []} />
+          <ActiveLinks
+            links={(links.data ?? []).filter((l) => isActive(l))}
+            labelFor={(id) => {
+              const r = snapshots.data?.find((x) => x.id === id)?.revision;
+              return r ? `Passport ${r}` : 'Passport';
+            }}
+            onChanged={links.reload}
+          />
           <Card as="section" aria-labelledby="earlier-title">
             <h2 id="earlier-title" className="flex items-center gap-2 font-sans text-card-sm font-semibold">
               <History aria-hidden className="size-5 text-ink-3" />
@@ -155,6 +174,7 @@ export function PassportScreen() {
           </Card>
         </aside>
       </div>
+      {outputs.dialog}
     </div>
   );
 }

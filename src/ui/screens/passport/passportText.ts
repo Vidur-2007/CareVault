@@ -100,9 +100,9 @@ export function allergyState(health: HealthEntry[]): AllergyState {
 
 const SNAPSHOT_REASON: Record<PassportSnapshot['reason'], string> = { manual: 'saved', print: 'printed', share: 'shared' };
 
-/** "Passport 3 · 14 Nov 2026 · printed". */
-export const snapshotLine = (s: Pick<PassportSnapshot, 'revision' | 'createdAt' | 'reason'>) =>
-  `Passport ${s.revision} · ${formatDate(s.createdAt)} · ${SNAPSHOT_REASON[s.reason]}`;
+/** "Passport 3 · 14 Nov 2026 · printed": the date the passport was prepared, from todayFor, as printed on it. */
+export const snapshotLine = (s: Pick<PassportSnapshot, 'revision' | 'reason'> & { passport: Pick<PassportSnapshot['passport'], 'preparedOn'> }) =>
+  `Passport ${s.revision} · ${formatDate(s.passport.preparedOn)} · ${SNAPSHOT_REASON[s.reason]}`;
 
 // ---------- history ----------
 

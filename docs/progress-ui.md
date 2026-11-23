@@ -866,3 +866,95 @@ Components still typed on v1 (`DocumentCard`, `PassportView`, `MedicineRow`, `Ti
 - **The record page calls `proposalFor`.** As in the core, this reopens a put-off review. Nothing about reviews reaches Home either way.
 
 **Open questions:** none new.
+
+### Step 7: snapshots, print and share (2026-11-23)
+
+**`PassportView`** (`components/PassportView.tsx`) is rebuilt on the v2 `Passport`. It is used by the snapshot page, the print page and the public page.
+- **Header:** "Health passport", "Passport 3 · prepared 14 Nov 2026", and the visit line.
+- **Patient box:** patient, emergency contact, prepared by, prepared on.
+- **Safety information first:**
+  - allergies in their three states ("Not recorded" says it is not the same as no allergies);
+  - "Flag for review" with the overview 9.5 sentence;
+  - current medicines (product, how taken, prescriber, source and last confirmed);
+  - "Current use not confirmed".
+- **Then:** conditions and procedures, recent changes, questions, and "Reports included". The reports show title, kind and date, with "Original removed on <date>" for a record deleted since. They never link back to the record. "Original files are not included in the link" follows the list.
+- **No repeated words:**
+  - the ingredient line appears only when it adds to the name (Dolo 650 shows "paracetamol 650 mg"; Amlodipine 10 mg shows nothing more);
+  - a reason that repeats its heading is left out;
+  - a recent change drops the word its pill already says (`lib/changes.ts`, also used on the Passport screen, where "Started · Started …" remained from step 5).
+- **On phones** each medicine row stacks with the same markup, so print and desktop keep the table and nothing overflows.
+
+**Print** (`/passport/print/:snapshotId`, `screens/PrintScreen.tsx`):
+- **Getting there:**
+  - from the Passport, Print first calls `passport.snapshot(profileId, 'print')`, which creates a snapshot or reuses the identical latest one, then opens the print page;
+  - from a saved snapshot, that snapshot is printed as it is.
+- **Opening the print dialog:** it opens once per history entry, after a short wait so the QR has rendered. Going back to the page does not print again.
+- **The QR:** printed only for an active link to that exact snapshot (`qrLinkFor`). The link is chosen by the `?link=` id when that link belongs to the snapshot, otherwise the snapshot's newest link. It is never picked from the profile's links by expiry. With no such link the toolbar says "No QR code is printed: there is no active link to this passport" and offers Share with QR.
+- **The toolbar** (not printed) names the snapshot and the report titles listed, and says "Original files are not included in the link."
+- **Print styles** (`styles/index.css`):
+  - small blocks stay whole;
+  - tables split with the header repeated;
+  - headings stay with what follows;
+  - the passport has no height limit or hidden overflow, so a long passport continues on further pages and nothing is cut.
+  - The sample prints as two A4 pages: allergies, the flag, all medicines and the unconfirmed entry are on page 1.
+
+**Share** (`screens/passport/ShareDialog.tsx`, `usePassportOutputs.tsx`):
+- **Getting there:** from the Passport, "Share with QR" calls `passport.snapshot(profileId, 'share')`; from a snapshot or the print page, that snapshot is used.
+- **The dialog:**
+  - it names the passport ("Passport 1 · prepared 14 Nov 2026");
+  - it says "The passport is encrypted on this device. Anyone with the link can read it until it expires.";
+  - expiry 2, 8 or 24 hours, then `sharing.create(snapshotId, hours)`;
+  - it shows the QR of the link just made (by id), its expiry, the link, Copy link, "Print with this QR code" and Revoke;
+  - other active links to the same snapshot are listed, and their QR is shown only when chosen.
+- **"Active links"** (`ActiveLinks.tsx`) lists `sharing.list(profileId)` with the passport each opens, its expiry, Copy link and Revoke. It appears on the Passport and on each snapshot (that snapshot's links only). No QR is shown there.
+
+**Snapshot view** (`/passport/snapshots/:id`, `screens/SnapshotScreen.tsx`): "Passport 3" with "Passport 3 · prepared 14 Nov 2026 · saved for printing", a note that it is a saved copy that does not change, Print, Share with QR, its active links, and the frozen `PassportView`. Another profile's snapshot shows "Passport not found", and so does its print page.
+
+**Public page** (`/share/:id`, `screens/ShareScreen.tsx`):
+- **No navigation, no analytics.** The key is read from the hash only.
+- **It works on a device with no profiles:** a doctor opening the link is never sent to Welcome.
+- **It shows** the passport read-only with its revision and date.
+- **States:** loading ("Opening and decrypting the passport…"), missing key ("This link is incomplete"), not found, revoked, expired, and other errors with Try again.
+
+**Also changed:**
+- **Earlier passports** on the Passport read "Passport 1 · 14 Nov 2026 · shared". They use the date the passport was prepared (from `todayFor`), not the device time it was saved.
+- **Review pills (step 6):** the review cards now use the proposal pills of UI spec section 2:
+  - "Newly prescribed" (blue);
+  - "Different strength" or "Different instructions" (amber);
+  - "Not on this prescription" (new grey-outline pill tone);
+  - "Possible match" (amber).
+  - The not-mentioned card's prescription side now reads "Not listed on it".
+
+**Tests.**
+- `SnapshotPrintShare.test.tsx` (12 tests):
+  - **printing creates a snapshot** (`snapshot(…, 'print')`) and prints it, **reuses it** when nothing changed, and makes passport 2 after a routine change; printing a saved snapshot makes none; the printed page carries allergies, the unconfirmed entry, the flag and the reports note;
+  - **the printed QR only for that snapshot:**
+    - no QR for passport 2 while passport 1 has a longer-lived link;
+    - passport 2's own link once made;
+    - another snapshot's link asked for by id is ignored;
+    - none after Revoke;
+  - the share dialog: wording, expiry choices, `create(snapshotId, 2)`, the QR of that link, then "Print with this QR code" printing exactly that link;
+  - Revoke from the active links;
+  - the `qrLinkFor` and `changeText` helpers;
+  - **two profiles never cross:** Ramesh's snapshot and print page are not found for Lakshmi; her print has her data only and no QR; her link list is empty;
+  - **a snapshot reads the same after a routine edit** (status, instruction, new allergy) **and after a record delete**, where only "Original removed on <date>" is added and nothing links back;
+  - **the share page states:** valid link (with loading), no profiles on the device, missing key, not found, revoked, expired, error then Try again.
+- Updated: `App.test.tsx` (the new routes and titles), `PassportScreen.test.tsx` (the earlier-passport date and the recent-change wording), `ReviewChangesScreen.test.tsx` (the pills).
+- `npm run check` passes: 33 test files, 537 tests, build OK. Lint is clean.
+- **Browser check** (real time, headless Edge):
+  - the share dialog, then "Print with this QR code";
+  - the print page with that QR, and the print dialog opened once;
+  - an A4 PDF through the DevTools protocol: two pages, nothing cut;
+  - the public page opened from the link at 1280 and 390 px.
+  - No page errors. The fixes it led to are listed above (repeated words, the phone table, the earlier-passport date).
+- **One flaky test fixed at its cause:**
+  - The print page used to clear its "print now" flag by rewriting history. If you left the page quickly, that could interrupt the next navigation, so it now remembers printed history entries instead.
+  - The tests wait for each page's own content, because navigations render as transitions.
+
+**Differs from the spec, or chosen here:**
+- **The printed title** is "Health passport", as the passport is no longer only for a visit; the visit line follows when there is one.
+- **Sources on the passport** read "Reported by the caregiver" or "Reported by the patient": the frozen passport has no names to put there.
+- **The print dialog opens on its own** when arriving from Print; "Print this page" is there to print again.
+- **The mock keeps links in memory,** so a share link opened in a new tab of the dev build shows "not found". With the real services the link works across devices.
+
+**Open questions:** none new.

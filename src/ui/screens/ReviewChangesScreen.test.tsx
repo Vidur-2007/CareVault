@@ -67,9 +67,9 @@ describe('review changes: the demo prescription', () => {
     // One card per asked row, in the order changed, new, not_mentioned.
     const cards = await screen.findAllByRole('article');
     expect(cards.map((c) => within(c).getByRole('heading', { level: 2 }).textContent)).toEqual(['Telmisartan', 'Aspirin', 'Atorvastatin']);
-    expect(within(cards[0]).getByText('Changed')).toBeInTheDocument();
-    expect(within(cards[1]).getByText('New')).toBeInTheDocument();
-    expect(within(cards[2]).getByText('Not mentioned')).toBeInTheDocument();
+    expect(within(cards[0]).getByText('Different strength')).toBeInTheDocument();
+    expect(within(cards[1]).getByText('Newly prescribed')).toBeInTheDocument();
+    expect(within(cards[2]).getByText('Not on this prescription')).toBeInTheDocument();
 
     // Changed: the routine value beside the prescription value.
     expect(within(cards[0]).getByText('Telmisartan 40 mg')).toBeInTheDocument();

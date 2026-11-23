@@ -54,7 +54,10 @@ describe('Passport: the live passport', () => {
     expect(screen.getByRole('checkbox', { name: /ECG report/ })).toBeChecked();
     expect(screen.getAllByRole('checkbox', { name: /Cardiology prescription/ }).every((c) => !(c as HTMLInputElement).checked)).toBe(true);
     expect(screen.queryByRole('checkbox', { name: /HbA1c/ })).toBeNull(); // not filed
-    expect(await screen.findByText('Started Rosuvastatin 10 mg')).toBeInTheDocument();
+    // The kind is the pill; the text does not repeat it ("Started" + "Rosuvastatin 10 mg").
+    const recent = screen.getByRole('region', { name: 'Recent changes' });
+    const rosuvastatin = (await within(recent).findAllByRole('listitem')).find((li) => li.textContent?.includes('Rosuvastatin 10 mg'))!;
+    expect(rosuvastatin).toHaveTextContent(/^StartedRosuvastatin 10 mg/);
     expect(screen.getByText(/None yet/)).toBeInTheDocument();
   });
 
@@ -63,7 +66,7 @@ describe('Passport: the live passport', () => {
     await ready();
     await userEvent.click(screen.getByRole('button', { name: 'Save a snapshot' }));
     expect(await screen.findByText('Saved as passport 1')).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: /^Passport 1 · \d+ \w{3} \d{4} · saved$/ })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Passport 1 · 14 Nov 2026 · saved' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Save a snapshot' }));
     expect(await screen.findByText('Nothing changed since passport 1. It is kept as it is.')).toBeInTheDocument();
   });

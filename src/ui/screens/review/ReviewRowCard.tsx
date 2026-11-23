@@ -7,7 +7,7 @@ import { Card, Panel } from '../../components/Card';
 import { Pill } from '../../components/Pill';
 import { cx } from '../../lib/cx';
 import { howTaken } from '../passport/passportText';
-import { blockedText, choiceLabel, KIND_PILL, questionFor, rowName, shownChoices, type Voice } from './reviewText';
+import { blockedText, choiceLabel, kindPill, questionFor, rowName, shownChoices, type Voice } from './reviewText';
 
 function Side({ label, medicine, empty }: { label: string; medicine: Pick<RoutineMedicine, 'productName' | 'instruction' | 'dosesPerDay' | 'form'> | PrescriptionLine | null; empty: string }) {
   return (
@@ -42,12 +42,12 @@ export function ReviewRowCard({ row, voice, chosen, onChoose, flagged, verifyHre
     <Card as="article" aria-labelledby={titleId}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id={titleId} className="font-sans text-card-sm font-semibold">{rowName(row)}</h2>
-        <Pill spec={KIND_PILL[row.kind]} />
+        <Pill spec={kindPill(row)} />
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <Side label="In the routine now" medicine={row.medicine} empty={row.kind === 'uncertain_match' ? 'No matching medicine found' : 'Not in the routine'} />
-        <Side label="On this prescription" medicine={row.line} empty="Not on this prescription" />
+        <Side label="On this prescription" medicine={row.line} empty="Not listed on it" />
       </div>
 
       {blocked && (

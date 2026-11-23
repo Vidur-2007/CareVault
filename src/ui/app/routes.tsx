@@ -31,11 +31,8 @@ export interface PlannedRoute {
  */
 export const PLANNED_ROUTES: PlannedRoute[] = [
   { path: '/', title: 'Home', step: 9 },
-  { path: '/passport/snapshots/:id', title: 'Passport snapshot', step: 7 },
-  { path: '/passport/print/:snapshotId', title: 'Print the passport', step: 7 },
   { path: '/ask', title: 'Ask', step: 8 },
   { path: '/settings', title: 'Settings', step: 9 },
-  { path: '/share/:id', title: 'Shared passport', step: 7, bare: true },
 ];
 
 const placeholder = (r: PlannedRoute): RouteObject => ({ path: r.path, element: <Placeholder title={r.title} step={r.step} /> });
@@ -50,6 +47,8 @@ export const routes: RouteObject[] = [
       { path: '/records/:id/review', element: screen(() => import('../screens/ReviewChangesScreen'), (m) => m.ReviewChangesScreen) },
       { path: '/passport', element: screen(() => import('../screens/PassportScreen'), (m) => m.PassportScreen) },
       { path: '/passport/medicines/:id', element: screen(() => import('../screens/MedicineDetailScreen'), (m) => m.MedicineDetailScreen) },
+      { path: '/passport/snapshots/:id', element: screen(() => import('../screens/SnapshotScreen'), (m) => m.SnapshotScreen) },
+      { path: '/passport/print/:snapshotId', element: screen(() => import('../screens/PrintScreen'), (m) => m.PrintScreen) },
       { path: '/records/:id', element: screen(() => import('../screens/RecordDetailScreen'), (m) => m.RecordDetailScreen) },
       ...PLANNED_ROUTES.filter((r) => !r.bare).map(placeholder),
       { path: '*', element: screen(() => import('../screens/NotFoundScreen'), (m) => m.NotFoundScreen) },
@@ -57,6 +56,7 @@ export const routes: RouteObject[] = [
   },
   // Without the navigation:
   { path: '/welcome', element: screen(() => import('../screens/WelcomeScreen'), (m) => m.WelcomeScreen) },
+  { path: '/share/:id', element: screen(() => import('../screens/ShareScreen'), (m) => m.ShareScreen) },
   ...PLANNED_ROUTES.filter((r) => r.bare).map(placeholder),
   // Private: not linked from navigation. Kept for design review.
   { path: '/dev/components', element: screen(() => import('../screens/DevComponentsScreen'), (m) => m.DevComponentsScreen) },

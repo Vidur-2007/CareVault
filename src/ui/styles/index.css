@@ -120,7 +120,8 @@
   }
 }
 
-/* Print (UI spec 7.9): the passport alone on one A4 page; the app chrome and toolbars are hidden. */
+/* Print (UI spec 4.11): the passport on A4, on one page where possible and continued on more pages
+   rather than hiding anything; the app chrome and toolbars are hidden. */
 @page {
   size: A4;
   margin: 12mm 14mm;
@@ -146,10 +147,24 @@
     padding: 0 !important;
   }
 
+  /* Small blocks stay whole; long ones (the medicines table, unconfirmed entries) continue on the
+     next page with the table header repeated. Nothing is cut or hidden (UI spec 4.11). */
   .break-inside-avoid,
-  table,
   tr {
     break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  h2 {
+    break-after: avoid;
+  }
+
+  .passport {
+    overflow: visible !important;
+    max-height: none !important;
   }
 }
 
