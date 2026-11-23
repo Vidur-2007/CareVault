@@ -773,3 +773,28 @@ No real key goes in the repository. Values go into the hosting dashboard, and in
 | 8 | No cloud without consent; locked PDF kept, `locked_pdf` | `reading/reading.test.ts`, `createRealServicesV2.test.ts` | The consent prompt |
 | 9 | Each QR opens its snapshot; wrong key, revoked, expired | `server/e2e-v2.test.ts` (real routes) | The shared page's states; second device on the public URL |
 | 10 | `npm run check` passes on `main` after the merge | Run at the merge | None |
+
+### Merge checkpoint (overview section 13): where it stands
+
+1. **Both sides finished.** Laptop B's pull request #2 ("UI v2: records, verification, routine review, passport") is open, mergeable, and its CI passes. Merging it into `main` was blocked by a permission check on this machine, so `main` is unchanged. The human merges #2 (and then core's), or allows the merge.
+2. **`integration-v2`** (pushed) is `feature/core` + `feature/ui`, merged locally; this is exactly what `main` will hold after both pull requests.
+   - The merge had no conflicts.
+   - Two mismatches came from the agreed fixture changes. The fixture now keeps `kinds` as a plain array, a core-side fix. Laptop B's mock test reads the checked Aspirin names from `proposalRowsAfterCheck`; that is a one-line change to laptop B's test, committed separately on `integration-v2` only, as `ui: …`.
+   - `npm run check` passes there (52 files, 884 tests).
+3. **The first release story, walked in a real browser against the real services** (`VITE_USE_MOCK=false`). Headless Chrome at 390 px, driven through the DevTools protocol, on a fresh profile. The real API ran locally with an in-memory share store, because Supabase is not set up yet.
+   1. **Save:** the demo PDF is read on the device: prescription, 13 Nov 2026, Dr. Kavita Rao matched. Check the values shows "7? mg", "A digit could not be read", and "It is right" is disabled.
+   2. **Correct:** the strength is corrected to 75 mg ("Corrected to 75 mg"). The prescription saves as Aspirin 75 mg, and the review is offered.
+   3. **Review:** the rows are exactly the fixture's: Telmisartan 40 → 80 changed, Aspirin new (unblocked), Atorvastatin not on it, 2 the same, 3 passive. "Started 80 mg" and two skips give "Telmisartan updated to 80 mg. Aspirin unchanged. Atorvastatin unchanged." Skipped rows come back unanswered when reopened. The passport has Telmisartan 80 mg ("Telmisartan 40 mg replaced by Telmisartan 80 mg"), and Home shows only the duplicate-ingredient item.
+   4. **Search:** Ask "latest lipid profile" answers "Latest lab report with test "Lipid profile": Lipid profile, 12 Nov 2026, Lakeside Diagnostics." The Records search lists it, "Matched: title, test name".
+   5. **Print and QR:** Share with QR creates the link through the real `/api/share`. The printed page's QR, decoded with the browser's `BarcodeDetector`, is exactly that link. A second Chrome with an empty profile opens the same snapshot ("Passport 1 · prepared 14 Nov 2026").
+   6. **Nothing breaks it:**
+      - after Dolo 650 is marked stopped, the live passport changes and the shared snapshot does not;
+      - Lakshmi's passport and print show nothing of Ramesh's and no QR, and Ramesh's snapshot is "not found" for her;
+      - after a backup, a later allergy, and a restore, the allergy is gone, the routine is as at the backup, and the snapshot and its QR link read as before;
+      - a wrong key shows "the key in the link is missing or wrong";
+      - after revoking, the doctor's device shows "This link was turned off".
+   - **One core bug found and fixed:** Review changes never finished loading on the real services. Every database batch notified subscribers, even one that only read. The UI re-reads on each notification, so `routine.proposalFor` started an endless re-read loop. The mock never notified on reads, so it did not show there. Batches now notify only when they wrote, tracked per transaction. Tests were added in `db/db.test.ts` and `review.test.ts`.
+4. **Not done yet:**
+   - **Removing the v1 side** (section 6). Tracing imports from `src/main.tsx` shows the v2 app still loads v1 types through `src/services/index.ts` and through shared UI components (`lineForm/*`, `MedicineRow`, `pills`, `lineText`); laptop B's v2 mock also imports v1 types for its migration. v2 itself needs the v1 data shapes to upgrade a v1 database, to restore a v1 backup and to open v1 share links. So this is a refactor, mostly of laptop B's files, not a deletion: move the v1 data shapes into a small module the migration owns, retype the shared core rules to v2, and switch the shared UI components to v2 types.
+   - **Contract request UI v2-3** (`medicine_pack`), for laptop B.
+   - **Deploying** (step 4), which needs the accounts from step 11.
