@@ -537,3 +537,87 @@ Components still typed on v1 (`DocumentCard`, `PassportView`, `MedicineRow`, `Ti
 - "Add a profile" reuses Welcome (`?new=profile`) instead of a separate page.
 
 **Open questions:** none new. The questions of step 1 still stand.
+
+### Step 3: records, search and record detail (2026-11-23)
+
+**Records (`/records`, 4.3)**, in `screens/RecordsScreen.tsx`:
+- **One search field.** It runs `records.search` 250 ms after typing stops.
+- **Filters:**
+  - kind chips with counts (only the kinds present, plus All);
+  - "Starred";
+  - doctor (the profile's prescribers);
+  - facility (the facilities on the records);
+  - a From / To date range;
+  - sort: newest or oldest first.
+  - On phones, doctor, facility and dates sit behind "More filters", which shows how many are in use, so the results stay near the top. On desktop they are always visible.
+- **"Matched:" labels:** each result says what matched, from `matchedOn` ("Matched: title, test name", "Matched: doctor"). They appear once a search or filter is in use.
+- **Ask:** a question-like phrase ("latest lipid profile", "prescriptions from my cardiologist", anything ending in "?") offers "Ask CareVault: “…”", linking to `/ask?q=…` for step 8.
+- **Views:** Grid and Timeline, remembered on this device.
+  - The timeline groups by month of `clinicalDate`, in the sort order. Undated records always form the final "Date not known" group, dated by `addedAt`: "Added 12 Nov from email".
+  - With a date range set, the screen says that records with no known date are left out.
+- **Every item shows its source:** "uploaded PDF", "PDF from email", "photo from the camera", or "scanned with the camera" for a camera PDF.
+- **Undated and pending records** carry "Date not known" and "Not yet filed" pills.
+- **Star** from the grid.
+- **Other states:** loading, error with Retry, empty ("No records yet" with "Add the first record"), and no match (with "Clear the search and filters").
+
+**Record detail (`/records/:id`, 4.5)**, in `screens/RecordDetailScreen.tsx`:
+- **The original:** the v1 preview is kept, with pages, zoom and download. Two changes:
+  - the scroll area is focusable, with a label, so the keyboard can scroll a zoomed page (v1 finding);
+  - a newer page or zoom now cancels the render in progress (`renderPdfPage` takes an `AbortSignal`).
+  - The original is fetched once per record, not through a subscribed query, so starring or editing no longer reloads it.
+- **Details:**
+  - kind;
+  - the date and its source ("Date from the document", "Date set by you", "Date not known · received by email on 12 Nov 2026");
+  - doctor, facility, tests and labels;
+  - the patient name read and whether it matches the profile;
+  - "Read 2 of 5 pages";
+  - how and when it was added;
+  - the status.
+- **Actions:**
+  - **Star.**
+  - **Edit the details:** a dialog with kind, title, date (may be left empty), doctor, facility, tests and labels. It shows linked errors and moves focus to the first one. It sends only the changed fields to `documents.update`.
+  - **File it** for pending records.
+  - **Delete.**
+- **Prescriptions:** the saved lines, each with "Checked" or "Check this value".
+- **Another profile's record:** opening one by link shows "Record not found".
+
+**Delete (`screens/records/DeleteRecordDialog.tsx`).**
+- **Before deleting,** the dialog lists the saved passports that list the record: "Passport revision 1, shared on 23 Nov 2026". It says they keep the record's title and date and will show the original as removed.
+- **When those passports have active links,** a checkbox, ticked by default, reads "Also turn off the active link to this passport".
+- **On Delete,** the dialog calls `documents.remove`. When the box is ticked, it revokes exactly the `activeShares` returned by that call. Then it shows "Deleted Lipid profile and turned off one link" and returns to Records.
+
+**Shared pieces moved to v2:** `DocumentCard` (with a `note` line for "Matched:"), `TimelineItem` (all eight kinds), and `lib/labels.ts`, which now holds the kind labels, source text, date-source text and pages text. The pure helpers are in `screens/records/recordsText.ts`.
+
+**Tests.**
+- `RecordsScreen.test.tsx` (10 tests):
+  - the full list with sources;
+  - search by test ("Matched: title, test name");
+  - filter by doctor, and text matching a specialty;
+  - filter by facility;
+  - a date range, which leaves undated records out;
+  - kind chips, sort and star;
+  - the Ask offer and clearing;
+  - **the timeline's final "Date not known" group**, in both sort orders;
+  - error and empty states.
+- `RecordDetailScreen.test.tsx` (12 tests):
+  - the undated email record and filing it;
+  - "Read 2 of 5 pages" and a name mismatch;
+  - editing, including errors, "Date set by you" and the doctor;
+  - star;
+  - prescription lines;
+  - another profile's record;
+  - **delete:**
+    - listing the snapshot and revoking its link (the link is revoked and the snapshot keeps the record with `removedAt`);
+    - with the box cleared, the link stays active;
+    - no passport lists it;
+  - the helpers.
+- `npm run check` passes: 27 test files, 461 tests, build OK. Lint is clean.
+- **Browser check:** with `VITE_USE_MOCK=true`, I took real-time screenshots through the DevTools protocol at 1280 and 390 px: the grid with first-page thumbnails, the detail with the rendered page, and the phone layout. Headless Edge's `--virtual-time-budget` leaves pdf.js renders unfinished, which looked like a blank preview. Real time shows they render.
+
+**Differs from the spec, or chosen here:**
+- "Check the values" and "Review changes to the current routine" are not on the detail yet; steps 4 and 6 add them.
+- The delete dialog works out which passports list the record and which links are active from `passport.snapshots` and `sharing.list` *before* deleting, so it can ask. The links it revokes are the ones `documents.remove` returns.
+- "Matched:" uses the mock's vocabulary (request v2-5): title, tag, test name, facility, doctor, specialty, kind, date.
+- With a date range set, undated records are left out, as the mock and `RecordQuery` do. The screen says so.
+
+**Open questions:** none new.

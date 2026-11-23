@@ -1,14 +1,17 @@
-import { Activity, ClipboardList, FileText, FlaskConical, Hospital } from 'lucide-react';
+import { Activity, Award, ClipboardList, FileText, FlaskConical, Hospital, ScanLine, Stethoscope } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import type { DocumentType } from '../../contract/legacy/types';
+import type { DocumentKind } from '../../contract/types';
 import { cx } from '../lib/cx';
 
-const TYPE_ICON: Record<DocumentType, ReactNode> = {
+const TYPE_ICON: Record<DocumentKind, ReactNode> = {
   prescription: <ClipboardList aria-hidden className="size-5" />,
   lab_report: <FlaskConical aria-hidden className="size-5" />,
+  imaging: <ScanLine aria-hidden className="size-5" />,
   test: <Activity aria-hidden className="size-5" />,
   discharge_summary: <Hospital aria-hidden className="size-5" />,
+  consultation: <Stethoscope aria-hidden className="size-5" />,
+  certificate: <Award aria-hidden className="size-5" />,
   other: <FileText aria-hidden className="size-5" />,
 };
 
@@ -18,7 +21,7 @@ export interface TimelineItemProps {
   title: ReactNode;
   detail?: ReactNode;
   /** Icon by document type, or pass a custom icon. */
-  type?: DocumentType;
+  type?: DocumentKind;
   icon?: ReactNode;
   to?: string;
   last?: boolean;

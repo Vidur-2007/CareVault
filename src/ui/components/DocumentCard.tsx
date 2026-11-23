@@ -1,18 +1,20 @@
 import { Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import type { DocumentRecord } from '../../contract/legacy/types';
+import type { DocumentRecord } from '../../contract/types';
 import { cx } from '../lib/cx';
 import { formatDate } from '../lib/format';
-import { DOCUMENT_TYPE_LABEL, sourceLabel, stateLabel } from '../lib/labels';
+import { KIND_LABEL, sourceLabel } from '../lib/labels';
 import { Pill } from './Pill';
 
 export interface DocumentCardProps {
   document: DocumentRecord;
   /** First-page thumbnail (image or rendered PDF page). */
   thumbnail?: ReactNode;
-  /** Replaces the state at the end of the meta line, e.g. "2 medicine changes found". */
+  /** Added to the end of the meta line, e.g. "2 medicine changes found". */
   extra?: string;
+  /** A line under the meta line, e.g. "Matched: test name". */
+  note?: ReactNode;
   onToggleStar?: (starred: boolean) => void;
   starPending?: boolean;
   /** Link target. Default /records/:id. */
@@ -20,9 +22,11 @@ export interface DocumentCardProps {
   className?: string;
 }
 
-export function DocumentCard({ document: doc, thumbnail, extra, onToggleStar, starPending, to, className }: DocumentCardProps) {
-  const pending = doc.state === 'pending_confirmation';
-  const meta = [formatDate(doc.documentDate), sourceLabel(doc), extra ?? (pending ? null : stateLabel(doc))].filter(Boolean).join(' · ');
+/** A record in the grid: kind, state, title, date and source (UI spec 4.3). */
+export function DocumentCard({ document: doc, thumbnail, extra, note, onToggleStar, starPending, to, className }: DocumentCardProps) {
+  const pending = doc.state === 'pending_review';
+  const date = doc.clinicalDate ? formatDate(doc.clinicalDate) : `Added ${formatDate(doc.addedAt)}`;
+  const meta = [date, sourceLabel(doc), extra].filter(Boolean).join(' · ');
 
   return (
     <article className={cx('relative flex flex-col rounded-card-sm border border-line bg-surface shadow-card md:rounded-card', className)}>
@@ -30,8 +34,9 @@ export function DocumentCard({ document: doc, thumbnail, extra, onToggleStar, st
       <div className="flex flex-1 flex-col p-[18px] md:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-wrap gap-2">
-            <Pill tone="grey">{DOCUMENT_TYPE_LABEL[doc.type]}</Pill>
-            {pending && <Pill tone="amber">Not yet confirmed</Pill>}
+            <Pill tone="grey">{KIND_LABEL[doc.kind]}</Pill>
+            {pending && <Pill tone="amber">Not yet filed</Pill>}
+            {!doc.clinicalDate && <Pill tone="grey">Date not known</Pill>}
           </div>
           {onToggleStar && (
             <button
@@ -53,6 +58,7 @@ export function DocumentCard({ document: doc, thumbnail, extra, onToggleStar, st
           </Link>
         </h3>
         <p className="mt-2 text-secondary text-ink-3 md:text-body-sm">{meta}</p>
+        {note && <p className="mt-1 text-secondary text-ink-2">{note}</p>}
       </div>
     </article>
   );

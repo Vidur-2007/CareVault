@@ -2,8 +2,8 @@
 import { Grid2x2, List } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { expected, IDS, sampleDocuments, sampleMedicines } from '../../contract/legacy/fixtures/sampleCase';
-import { sampleProfiles } from '../../contract/fixtures/sampleCase';
+import { expected, IDS, sampleMedicines } from '../../contract/legacy/fixtures/sampleCase';
+import { IDS as V2, sampleDocuments as sampleDocumentsV2, sampleProfiles } from '../../contract/fixtures/sampleCase';
 import { NAV_ITEMS } from '../app/navItems';
 import {
   BottomTabs,
@@ -41,7 +41,7 @@ import { placeholderPdf } from '../mock/placeholderPdf';
 import { Inbox } from 'lucide-react';
 
 const med = (id: string) => sampleMedicines.find((m) => m.id === id)!;
-const doc = (id: string) => sampleDocuments.find((d) => d.id === id)!;
+const docV2 = (id: string) => sampleDocumentsV2.find((d) => d.id === id)!;
 
 const PACK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400"><rect width="600" height="400" fill="#F7FAFA"/><rect x="60" y="80" width="480" height="240" rx="18" fill="#fff" stroke="#9FB3B4" stroke-width="3"/><text x="300" y="190" font-family="sans-serif" font-size="56" font-weight="700" text-anchor="middle" fill="#0B6E6E">DOLO 650</text><text x="300" y="245" font-family="sans-serif" font-size="24" text-anchor="middle" fill="#33504F">Paracetamol Tablets IP 650 mg</text></svg>`;
 
@@ -220,14 +220,21 @@ export function DevComponentsScreen() {
           />
           {view === 'grid' ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <DocumentCard document={{ ...doc(IDS.documents.lipidProfile), starred }} onToggleStar={setStarred} />
-              <DocumentCard document={doc(IDS.documents.raoLatest)} extra="2 medicine changes found" />
-              <DocumentCard document={doc(IDS.documents.hba1c)} />
+              <DocumentCard document={{ ...docV2(V2.documents.lipidProfile), starred }} onToggleStar={setStarred} note="Matched: test name" />
+              <DocumentCard document={docV2(V2.documents.raoLatest)} extra="2 medicine changes found" />
+              <DocumentCard document={docV2(V2.documents.hba1c)} />
             </div>
           ) : (
             <ol className="max-w-xl">
-              {sampleDocuments.map((d, i) => (
-                <TimelineItem key={d.id} date={formatDate(d.documentDate)} title={d.title} type={d.type} to={`/records/${d.id}`} last={i === sampleDocuments.length - 1} />
+              {sampleDocumentsV2.map((d, i) => (
+                <TimelineItem
+                  key={d.id}
+                  date={d.clinicalDate ? formatDate(d.clinicalDate) : `Added ${formatDate(d.addedAt)}`}
+                  title={d.title}
+                  type={d.kind}
+                  to={`/records/${d.id}`}
+                  last={i === sampleDocumentsV2.length - 1}
+                />
               ))}
             </ol>
           )}
