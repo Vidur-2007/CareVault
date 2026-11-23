@@ -70,6 +70,8 @@ describe('v2 shell and navigation', () => {
       { path: '/records/x', heading: 'Record not found', title: 'Record · CareVault', bare: false },
       { path: '/records/add', heading: 'Add a record', title: 'Add a record · CareVault', bare: false },
       { path: '/records/x/verify', heading: 'Check the values', title: 'Check the values · CareVault', bare: false },
+      { path: '/passport', heading: 'Passport', title: 'Passport · CareVault', bare: false },
+      { path: '/passport/medicines/x', heading: 'Medicine not found', title: 'Medicine · CareVault', bare: false },
       { path: `/records/${IDS.documents.lipidProfile}`, heading: 'Lipid profile', title: 'Lipid profile · CareVault', bare: false },
       { path: '/welcome', heading: 'Welcome to CareVault', title: 'Welcome · CareVault', bare: true },
       { path: '/no-such-page', heading: 'This page does not exist', title: 'Page not found · CareVault', bare: false },

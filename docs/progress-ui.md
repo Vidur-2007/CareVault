@@ -719,3 +719,88 @@ Components still typed on v1 (`DocumentCard`, `PassportView`, `MedicineRow`, `Ti
 - **v2-6:** the read-date source.
 - **v2-7:** the mismatch answer.
 - **v2-2:** replacing an original on retake.
+
+### Step 5: passport and the reported routine (2026-11-23)
+
+**Passport (`/passport`, 4.8)** is `screens/PassportScreen.tsx`, with its sections in `screens/passport/`:
+- **The patient strip:** name, age (from `todayFor`), relation, emergency contact (or "not added") and prepared by.
+- **"Save a snapshot":** calls `passport.snapshot(…, 'manual')`. When nothing changed it says "Nothing changed since passport N. It is kept as it is."
+- **Current medicines:** `taking` entries in the passport order of overview 9.6, which is visit prescriber first, then other prescribers by name, then none, and A to Z within each. Each shows:
+  - ingredients and how it is taken;
+  - the source label ("Reported by Anjali", "From a prescription", "From the pack");
+  - the doctor;
+  - "Last confirmed 30 Oct";
+  - a link to its detail.
+- **"Add a medicine he takes"** (the wording follows the profile: "she", "they", or "I" for "Myself"):
+  - **The form:** name, any number of ingredients with strength and unit, form, doses a day and how it is taken. Errors are linked and focus moves to the first.
+  - **Saved as:** `routine.add` with status `taking`, source caregiver-reported (or patient-reported for "Myself") and no document, so no gate applies.
+- **"Current use not confirmed"** lists `uncertain` and legacy-pending entries:
+  - "Still taking";
+  - "Stopped", after a confirmation ("Mark Atorvastatin 10 mg as stopped? … You can change this later").
+  - Legacy entries are answered through `resolveLegacy`, so they leave the batch too.
+- **"Choose the medicines he still takes":** while legacy entries are pending, a checklist settles them all at once with `resolveLegacy`. It says printing and sharing stay possible, and a snapshot can be saved meanwhile; the pending entries appear as unconfirmed in it.
+- **Possible duplicate ingredients:** the v1 card rebuilt for v2.
+  - The products side by side.
+  - "If both are taken as entered", with the total only when it is complete. Otherwise it says "No total" and which product's frequency is missing.
+  - The fixed sentence of overview 9.5: "These medicines may contain the same active ingredient. Please verify them with a pharmacist or prescriber."
+- **Allergies and history:**
+  - allergies in three states, each with a pill: listed, "No known allergies" (one explicit entry, with Undo) and "Not recorded" (the passport says so; it is not the same as no allergies);
+  - adding a real allergy replaces "No known allergies";
+  - conditions and procedures, with add and remove.
+- **Recent changes:** from `passport.live` (last 90 days), each with a kind pill.
+- **The next visit:** weekday, date, doctor and time, with "Change the visit". With no visit, "Add the next visit" opens a form with doctor, date and time. It offers "Add a doctor" when the profile has none.
+- **Questions for the doctor:** add and remove.
+- **Reports to share:** a checklist of filed records, starred first. Pack photos are left out until request v2-3. It notes that files are not included in a link.
+- **Earlier passports:** "Passport 3 · 14 Nov 2026 · printed", newest first, linking to `/passport/snapshots/:id` (step 7 builds that page).
+
+**Medicine detail (`/passport/medicines/:id`, 4.9)** is `screens/MedicineDetailScreen.tsx`:
+- **Details:**
+  - ingredients, how it is taken, doses a day;
+  - the source label and the doctor;
+  - the source record (a link, or "The source record was removed");
+  - last confirmed;
+  - "Replaced by" with a link.
+- **"What is true now?":** Taking, Not sure, Not started and Stopped. Not started and Stopped are confirmed first. The wording records what is taken; it never advises starting or stopping.
+- **History,** newest first, with a before-and-after table per event (name, strength, doses a day, how it is taken, status).
+- **Edit:** the same form as Add; the change is recorded as a history event.
+- **"Undo the latest change"** (`routine.undo`):
+  - It is not offered when the latest event is itself an undo.
+  - Undoing the event that created an entry removes it and returns to the Passport.
+  - On `stale` it shows "A later change was made; see the history."
+- **Another profile's medicine:** opening one by link shows "Medicine not found".
+
+**Tests.**
+- `PassportScreen.test.tsx` (12 tests):
+  - the sample passport: the strip, the order of `expected` current medicines, source labels and dates, not confirmed, allergies, conditions, questions, reports and recent changes;
+  - snapshot save and reuse;
+  - **adding a medicine by hand without a prescription** (validation, then a `caregiver_reported` / `taking` entry with no document);
+  - **status change with confirmation** (cancel keeps it; confirm stops it);
+  - "Still taking";
+  - **the legacy batch:** from an imported v1 mock backup, a snapshot saved while pending, then one kept and the rest stopped;
+  - **the three allergy states:** listed, then not recorded, then no known allergies, then listed;
+  - conditions and procedures;
+  - **the duplicate card with a complete total** (3,450 mg = 1,950 + 1,500) **and an incomplete one** (no total, "how often not entered");
+  - questions and reports;
+  - adding the next visit for Lakshmi.
+- `MedicineDetailScreen.test.tsx` (10 tests):
+  - fields, source record, "Replaced by", and history with before and after;
+  - **status change with confirmation;**
+  - **undo;**
+  - **undo refused** (`stale`);
+  - edit, then undo the edit;
+  - undo of a hand-added entry removes it;
+  - a removed source record;
+  - another profile's medicine;
+  - the helpers.
+- `npm run check` passes: 31 test files, 510 tests, build OK. Lint is clean.
+- **Browser check:** real-time screenshots through the DevTools protocol of the Passport at 1280 and 390 px and of the medicine detail at 1280 px, with no page errors. Two changes came from them:
+  - the allergy and history cards use at most two columns, with each entry's text taking the space;
+  - recent changes show their kind as a pill instead of a doubled prefix ("Started: Started …").
+
+**Differs from the spec, or chosen here:**
+- **Print and Share with QR** are not in the header yet; step 7 adds them with the snapshot, print and share screens. "Save a snapshot" is there now, so earlier passports can be made and listed.
+- **The medicines section** is built from `routine.list` with the passport's ordering rule, not from `passport.live`, because `currentMedicines` has no entry ids to link to the detail. The two use the same rule, and the test checks the order against `expected`.
+- **"Still taking"** on an unconfirmed entry sets it to `taking`, as in step 1, point 5. On a legacy entry it goes through `resolveLegacy`.
+- **Hand-entered ingredient rows:** a row left fully empty is dropped, so a medicine can be added with its name alone. It then takes no part in duplicate checks.
+
+**Open questions:** none new.
