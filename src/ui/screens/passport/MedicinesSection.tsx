@@ -46,7 +46,7 @@ export function MedicinesSection({ profile, routine, visit, prescribers }: Medic
   );
 
   return (
-    <section aria-labelledby="medicines-title" className="flex flex-col gap-6">
+    <section id="medicines" aria-labelledby="medicines-title" className="flex scroll-mt-24 flex-col gap-6">
       <SectionHeader
         id="medicines-title"
         title="Current medicines"

@@ -151,7 +151,7 @@ function QuestionsCard({ visit }: { visit: Visit | null }) {
   };
 
   return (
-    <Card as="section" aria-labelledby="questions-title">
+    <Card as="section" id="questions" aria-labelledby="questions-title" className="scroll-mt-24">
       <h2 id="questions-title" className="font-sans text-card-sm font-semibold">Questions for the doctor</h2>
       {!visit ? (
         <p className="mt-3 text-ink-2">Add the next visit to keep questions for it.</p>

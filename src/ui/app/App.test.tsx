@@ -73,6 +73,7 @@ describe('v2 shell and navigation', () => {
       { path: '/records/x/review', heading: 'What changed on this prescription', title: 'Review changes · CareVault', bare: false },
       { path: '/passport/snapshots/x', heading: 'Passport not found', title: 'Passport snapshot · CareVault', bare: false },
       { path: '/passport/print/x', heading: 'Passport not found', title: 'Print the passport · CareVault', bare: false },
+      { path: '/ask', heading: 'Ask CareVault', title: 'Ask · CareVault', bare: false },
       { path: '/share/x', heading: 'This link is incomplete', title: 'Shared passport · CareVault', bare: true },
       { path: '/passport', heading: 'Passport', title: 'Passport · CareVault', bare: false },
       { path: '/passport/medicines/x', heading: 'Medicine not found', title: 'Medicine · CareVault', bare: false },

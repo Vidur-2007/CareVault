@@ -1,7 +1,8 @@
 // Passport, UI spec 4.8: the live passport, plus the reported routine, which is edited here.
 // Print and Share with QR (4.11) always go through a snapshot, created or reused first.
 import { History, Printer, QrCode as QrIcon, Save } from 'lucide-react';
-import { Link } from 'react-router';
+import { useEffect } from 'react';
+import { Link, useLocation } from 'react-router';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ErrorPanel } from '../components/ErrorPanel';
@@ -46,6 +47,13 @@ export function PassportScreen() {
 
   const age = ageFrom(p.birthYear, today);
   const loading = routine.loading || health.loading || visit.loading;
+
+  // "/passport#questions" and "/passport#medicines" (from Ask) open at that section once it is shown.
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (loading || !hash) return;
+    document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView?.({ block: 'start' });
+  }, [loading, hash]);
   const error = routine.error ?? health.error ?? visit.error;
 
   const header = (

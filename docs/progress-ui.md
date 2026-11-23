@@ -958,3 +958,50 @@ Components still typed on v1 (`DocumentCard`, `PassportView`, `MedicineRow`, `Ti
 - **The mock keeps links in memory,** so a share link opened in a new tab of the dev build shows "not found". With the real services the link works across devices.
 
 **Open questions:** none new.
+
+### Step 8: Ask (2026-11-23)
+
+**Ask (`/ask`, 4.12)** is `screens/AskScreen.tsx`, with its wording in `screens/ask/askText.ts`:
+- **Header:** "Ask CareVault" and "Ask about Ramesh's records: a test, a doctor, a place or a date."
+- **The question box:** "Your question", a search field with an Ask button.
+- **The five example chips** of the spec. Each one asks straight away:
+  - "Latest lipid profile";
+  - "Prescriptions from the cardiologist";
+  - "Last three HbA1c reports";
+  - "What questions did I save?";
+  - the medicines question in the profile's words: "What medicines does he take?", "…does she take?", "…do they take?", or "…do I take?" for "Myself".
+- **One question at a time:**
+  - The question lives in the address (`?q=`), so the Records "Ask CareVault" link opens with its answer and Back after opening a result returns to the same answer.
+  - Nothing else is kept: no chat history and no model. The answer is `records.ask`, which reads the question with fixed rules.
+- **The answer:**
+  - "Looking for: latest report with Lipid profile" (`interpretedAs`), then the factual `text` as given by the services;
+  - **records found:** cards that open `/records/:id`, each with title, kind, date ("Date not known" when there is none), facility or doctor, source ("uploaded PDF", "PDF from email") and "Matched: …";
+  - **questions:** the saved questions, and "Open the questions in the passport" (`/passport#questions`);
+  - **medicines:** cards that open each medicine's detail, and "Open the current medicines in the passport" (`/passport#medicines`).
+  - The Passport opens at that section: the questions card and the medicines section now carry those ids, and the page scrolls to the hash once loaded.
+- **Not understood:** "CareVault can search your records by test, doctor, place and date. Try: latest lipid profile or prescriptions from the cardiologist." The two examples are inline links that ask; the full set is just above.
+- **The footer:** "Answers come from the records on this device. CareVault does not give medical advice."
+- **States:** loading (skeleton, announced politely), error with Try again, no answer before a question is asked.
+
+**Tests.**
+- `AskScreen.test.tsx` (7 tests):
+  - the box, the five chips in order, the footer, and no answer at first;
+  - **each example chip:** it asks its question (in the address too) and shows exactly the `interpretedAs` and `text` of `records.ask`, with result links matching its records, questions or medicines;
+  - the sample case answers:
+    - Lipid profile with "12 Nov 2026 · Lakeside Diagnostics", its source and "Matched: test name";
+    - the two cardiology prescriptions, newest first;
+    - the undated HbA1c report shown as "Date not known";
+    - the six medicines taken;
+  - **understood false:** the hint, no "Looking for", no results, and its examples ask;
+  - **results open the right record** (Lipid profile), medicine (Metformin) and passport section (`#questions`); Back returns to the answer;
+  - Lakshmi gets nothing of Ramesh's, and her chip says "she";
+  - the wording helpers.
+- `App.test.tsx`: `/ask` now renders "Ask CareVault".
+- `npm run check` passes: 34 test files, 544 tests, build OK. Lint is clean.
+- **Browser check:** real-time screenshots of Ask at 1280 and 390 px (an answer with records, the medicines answer, not understood), with no page errors. One change came from them: the not-understood hint first repeated all five chips just below the same five chips, and now names two examples inline.
+
+**Differs from the spec, or chosen here:**
+- **The not-understood text** shown is the spec's sentence, not the services' own `text` (which says much the same with other examples).
+- **The page heading** is "Ask CareVault"; the navigation item and the page title stay "Ask".
+
+**Open questions:** none new.
