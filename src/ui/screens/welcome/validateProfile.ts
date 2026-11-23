@@ -78,3 +78,17 @@ export function validateProfile(values: ProfileFormValues, currentYear: number):
     },
   };
 }
+
+/** The form values of an existing profile, for editing it (UI spec 4.13). */
+export function valuesFromProfile(p: Profile): ProfileFormValues {
+  const self = p.relation === SELF_RELATION;
+  return {
+    selfManaged: self,
+    name: p.name,
+    relation: self ? '' : p.relation,
+    birthYear: p.birthYear === null ? '' : String(p.birthYear),
+    emergencyContact: p.emergencyContact ?? '',
+    caregiverName: p.caregiverName,
+    caregiverRelation: p.caregiverRelation,
+  };
+}

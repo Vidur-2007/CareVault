@@ -60,7 +60,8 @@ export function AddRecordScreen() {
   const they = pronounsFor(profile!.relation);
   const [params] = useSearchParams();
 
-  const [step, setStep] = useState<Step>({ name: 'capture' });
+  // "Check for new reports" (Home, Settings) arrives with ?from=gmail and opens the Gmail step.
+  const [step, setStep] = useState<Step>(() => (params.get('from') === 'gmail' ? { name: 'gmail' } : { name: 'capture' }));
   const [candidate, setCandidate] = useState<ExtractionCandidate | null>(null);
   const [retake, setRetake] = useState<DocumentRecord | null>(null);
   const [queue, setQueue] = useState<Added[]>([]);

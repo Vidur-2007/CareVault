@@ -46,7 +46,7 @@ describe('v2 shell and navigation', () => {
 
   it('moves between sections', async () => {
     const { router } = renderAt('/');
-    await screen.findByRole('heading', { level: 1, name: 'Home' });
+    await screen.findByRole('heading', { level: 1, name: 'Ramesh Iyer' });
     const nav = screen.getAllByRole('navigation', { name: 'Main' })[0];
     await userEvent.click(within(nav).getByRole('link', { name: 'Passport' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Passport' })).toBeInTheDocument();
@@ -59,11 +59,12 @@ describe('v2 shell and navigation', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Welcome to CareVault' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/welcome');
     await userEvent.click(screen.getByRole('button', { name: 'Try the sample profiles' }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Home' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Ramesh Iyer' })).toBeInTheDocument();
     expect((await services.profiles.list()).map((p) => p.id)).toEqual([IDS.ramesh, IDS.lakshmi]);
   });
 
-  it('every v2 route renders its screen or placeholder and sets document.title', async () => {
+  // Every route loads its own lazy screen: more than the default 5 s on a slow machine.
+  it('every v2 route renders its screen or placeholder and sets document.title', { timeout: 30000 }, async () => {
     const cases = [
       ...PLANNED_ROUTES.map((r) => ({ path: r.path.replace(/:[a-zA-Z]+/g, 'x'), heading: r.title, title: `${r.title} · CareVault`, bare: !!r.bare })),
       { path: '/records', heading: 'Records', title: 'Records · CareVault', bare: false },
@@ -73,6 +74,8 @@ describe('v2 shell and navigation', () => {
       { path: '/records/x/review', heading: 'What changed on this prescription', title: 'Review changes · CareVault', bare: false },
       { path: '/passport/snapshots/x', heading: 'Passport not found', title: 'Passport snapshot · CareVault', bare: false },
       { path: '/passport/print/x', heading: 'Passport not found', title: 'Print the passport · CareVault', bare: false },
+      { path: '/', heading: 'Ramesh Iyer', title: 'Home · CareVault', bare: false },
+      { path: '/settings', heading: 'Settings', title: 'Settings · CareVault', bare: false },
       { path: '/ask', heading: 'Ask CareVault', title: 'Ask · CareVault', bare: false },
       { path: '/share/x', heading: 'This link is incomplete', title: 'Shared passport · CareVault', bare: true },
       { path: '/passport', heading: 'Passport', title: 'Passport · CareVault', bare: false },

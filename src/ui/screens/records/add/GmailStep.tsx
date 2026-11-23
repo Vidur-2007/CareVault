@@ -10,6 +10,8 @@ import { ErrorPanel } from '../../../components/ErrorPanel';
 import { toServiceError } from '../../../hooks/toServiceError';
 import { useCloudNotice, useProfile, useServices } from '../../../hooks/useContexts';
 import { formatDate } from '../../../lib/format';
+import { markGmailConnected } from '../../../lib/gmailSession';
+import { Pill } from '../../../components/Pill';
 
 const INBOX_MESSAGE = 'Reading your inbox for report attachments';
 
@@ -36,6 +38,7 @@ export function GmailStep({ onImported, onCancel }: GmailStepProps) {
     try {
       const found = await cloud.run(INBOX_MESSAGE, async () => {
         await services.gmail.connect();
+        markGmailConnected();
         return services.gmail.findCandidates(pid);
       });
       setRows(found);
@@ -92,8 +95,13 @@ export function GmailStep({ onImported, onCancel }: GmailStepProps) {
             {rows.map((c) => (
               <li key={rowKey(c)} className="rounded-panel border border-line px-4 py-1">
                 <Checkbox
-                  label={<span className="font-semibold text-ink">{c.attachmentName}</span>}
-                  description={`${c.subject} · ${c.from} · received ${formatDate(c.receivedAt)}${c.alreadyImported ? ' · Already imported' : ''}`}
+                  label={
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-ink">{c.attachmentName}</span>
+                      {c.alreadyImported && <Pill tone="teal">Already imported</Pill>}
+                    </span>
+                  }
+                  description={`${c.subject} · ${c.from} · received ${formatDate(c.receivedAt)}`}
                   checked={selected.has(rowKey(c))}
                   onChange={(e) =>
                     setSelected((s) => {

@@ -30,8 +30,6 @@ export interface PlannedRoute {
  * screen in its step.
  */
 export const PLANNED_ROUTES: PlannedRoute[] = [
-  { path: '/', title: 'Home', step: 9 },
-  { path: '/settings', title: 'Settings', step: 9 },
 ];
 
 const placeholder = (r: PlannedRoute): RouteObject => ({ path: r.path, element: <Placeholder title={r.title} step={r.step} /> });
@@ -40,6 +38,8 @@ export const routes: RouteObject[] = [
   {
     element: <AppShell />,
     children: [
+      { path: '/', element: screen(() => import('../screens/HomeScreen'), (m) => m.HomeScreen) },
+      { path: '/settings', element: screen(() => import('../screens/SettingsScreen'), (m) => m.SettingsScreen) },
       { path: '/records', element: screen(() => import('../screens/RecordsScreen'), (m) => m.RecordsScreen) },
       { path: '/records/add', element: screen(() => import('../screens/AddRecordScreen'), (m) => m.AddRecordScreen) },
       { path: '/records/:id/verify', element: screen(() => import('../screens/VerifyScreen'), (m) => m.VerifyScreen) },

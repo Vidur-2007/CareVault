@@ -126,7 +126,7 @@ export function PassportScreen() {
           <MedicinesSection profile={p} routine={meds} visit={visit.data ?? null} prescribers={prescribers} />
 
           {(totals.data ?? []).length > 0 && (
-            <section aria-labelledby="duplicates-title" className="flex flex-col gap-4">
+            <section id="duplicates" aria-labelledby="duplicates-title" className="flex scroll-mt-24 flex-col gap-4">
               <SectionHeader id="duplicates-title" title="Possible duplicate ingredients" />
               {totals.data!.map((t) => <DuplicateCard key={t.ingredient} total={t} medicines={meds} />)}
             </section>

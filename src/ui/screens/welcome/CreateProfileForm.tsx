@@ -5,24 +5,27 @@ import { Button } from '../../components/Button';
 import { Checkbox } from '../../components/Checkbox';
 import { Field } from '../../components/Field';
 import { useServiceAction } from '../../hooks/useServiceAction';
-import { EMPTY_PROFILE_FORM, PROFILE_FIELD_ORDER, validateProfile } from './validateProfile';
+import { EMPTY_PROFILE_FORM, PROFILE_FIELD_ORDER, validateProfile, valuesFromProfile } from './validateProfile';
 import type { NewProfile, ProfileFormErrors, ProfileFormValues } from './validateProfile';
 
 type TextField = Exclude<keyof ProfileFormValues, 'selfManaged'>;
 const fieldId = (key: TextField) => `profile-${key}`;
 
 export interface CreateProfileFormProps {
+  /** Called with the profile created, or saved when editing. */
   onCreated: (profile: Profile) => void;
   onCancel?: () => void;
+  /** Edit this profile instead of creating one (Settings, UI spec 4.13). */
+  editing?: Profile;
 }
 
-/** Create-profile form (UI spec 4.1). Errors appear on submit, then update as the user types. */
-export function CreateProfileForm({ onCreated, onCancel }: CreateProfileFormProps) {
-  const [values, setValues] = useState<ProfileFormValues>(EMPTY_PROFILE_FORM);
+/** Create-profile form (UI spec 4.1), also used to edit a profile. Errors appear on submit, then update as the user types. */
+export function CreateProfileForm({ onCreated, onCancel, editing }: CreateProfileFormProps) {
+  const [values, setValues] = useState<ProfileFormValues>(() => (editing ? valuesFromProfile(editing) : EMPTY_PROFILE_FORM));
   const [errors, setErrors] = useState<ProfileFormErrors>({});
   const [submitted, setSubmitted] = useState(false);
-  const create = useServiceAction((s, input: NewProfile) => s.profiles.create(input), {
-    errorPrefix: 'The profile could not be created',
+  const create = useServiceAction((s, input: NewProfile) => (editing ? s.profiles.update(editing.id, input) : s.profiles.create(input)), {
+    errorPrefix: editing ? 'The profile could not be saved' : 'The profile could not be created',
   });
   const currentYear = new Date().getFullYear();
   const self = values.selfManaged;
@@ -54,7 +57,7 @@ export function CreateProfileForm({ onCreated, onCancel }: CreateProfileFormProp
   return (
     <form noValidate onSubmit={onSubmit} aria-labelledby="create-profile-title" className="flex flex-col gap-5">
       <h2 id="create-profile-title" className="text-card-sm md:text-card">
-        Create a profile
+        {editing ? `Edit ${editing.name}` : 'Create a profile'}
       </h2>
       <Checkbox
         label="I manage my own records"
@@ -134,7 +137,7 @@ export function CreateProfileForm({ onCreated, onCancel }: CreateProfileFormProp
           </Button>
         )}
         <Button type="submit" loading={create.pending}>
-          Create profile
+          {editing ? 'Save the changes' : 'Create profile'}
         </Button>
       </div>
     </form>

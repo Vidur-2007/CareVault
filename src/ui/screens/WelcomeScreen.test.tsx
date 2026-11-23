@@ -90,7 +90,7 @@ describe('Welcome screen', () => {
     await userEvent.type(screen.getByLabelText('Your relation to them'), 'son');
     await userEvent.click(screen.getByRole('button', { name: 'Create profile' }));
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Home' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Lakshmi Iyer' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/');
     const [profile] = await services.profiles.list();
     expect(profile).toMatchObject({ name: 'Lakshmi Iyer', relation: 'Mother', caregiverName: 'Ravi Iyer', caregiverRelation: 'son', emergencyContact: 'Ravi Iyer, +91 90000 11111' });
@@ -109,7 +109,7 @@ describe('Welcome screen', () => {
     await userEvent.type(screen.getByLabelText('Your name'), 'Meera Nair');
     await userEvent.click(screen.getByRole('button', { name: 'Create profile' }));
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Home' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Meera Nair' })).toBeInTheDocument();
     expect((await services.profiles.list())[0]).toMatchObject({ name: 'Meera Nair', relation: 'Myself', caregiverName: '', caregiverRelation: '', emergencyContact: null });
   });
 

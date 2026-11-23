@@ -1005,3 +1005,62 @@ Components still typed on v1 (`DocumentCard`, `PassportView`, `MedicineRow`, `Ti
 - **The page heading** is "Ask CareVault"; the navigation item and the page title stay "Ask".
 
 **Open questions:** none new.
+
+### Step 9: Home, Gmail import and Settings (2026-11-23)
+
+**Home (`/`, 4.2)** is `screens/HomeScreen.tsx`, with its wording in `screens/home/homeText.ts`:
+- **The header:** the patient's name and "Father · 71 years · cared for by Anjali Iyer" ("Your own records" for "Myself").
+- **The passport card:** name and age, "6 medicines being taken", "Current use not confirmed" with the entries, the allergy state (listed, "No known allergies" or "Allergies not recorded"), and "Open the passport".
+- **The next visit**, when there is one: day, doctor and time, with "Prepare for the visit" (to the Passport).
+- **"Needs attention":** `attention.list` filtered to the four kinds only (`HOME_KINDS`). Anything else the list might hold is never shown. Each card has its pill, title, body and one action:
+  - unverified fields: "Check the values" → `/records/:id/verify`;
+  - unassigned import: "Choose whose record this is", which opens a dialog to give it to a profile (`documents.assignProfile`) or "Not ours: remove it";
+  - possible duplicate ingredient: "Review the products" → `/passport#duplicates`;
+  - legacy routine review: "Choose the medicines he still takes" (in the profile's words) → `/passport#legacy-review`.
+  - With nothing to show, the section is absent: no "everything is done" banner. No medicine-status question and no prescription review ever appear on Home.
+- **Add a record** ("Add a record", "From Gmail") and **the Ask box**, which opens `/ask?q=…`.
+- **Recently added:** the three newest records by when they were added.
+- **The Gmail line,** when Gmail was connected this session: "Gmail connected for this session · Check for new reports".
+- **Layout:** two columns on desktop. On phones one column in the spec's order: passport card and visit first, then attention, add and ask, recent records.
+
+**Gmail import (4.10):**
+- **In the add flow:** the step 4 Gmail step, now with "Already imported" as a pill. Already imported rows start unticked.
+- **Rows:** one per PDF attachment, so two attachments of one email are two rows, imported separately, and each joins the add flow at step 2.
+- **Shortcut:** `/records/add?from=gmail` opens the add flow straight on the Gmail step (from Home and Settings).
+- **"Connected this session"** is kept in memory (`lib/gmailSession.ts`), as the permission is: a reload forgets it.
+
+**Settings (`/settings`, 4.13)** is `screens/SettingsScreen.tsx` with `screens/settings/`:
+- **Profiles:** each with relation, age, caregiver and emergency contact; Edit (the Welcome form in an edit mode, `profiles.update`), Switch, and Add a profile. `/settings#add-profile` opens the add form.
+- **Doctors of the current profile:** the list, and add with name and specialty (`profiles.addPrescriber`), with a linked error when the name is empty.
+- **Cloud reading:** as v1, worded for pages.
+- **Gmail:** "Connect Gmail for this session" (`gmail.connect` straight from the tap, with the CloudNotice), then "Gmail connected for this session · Check for new reports".
+- **Backup:** the v1 save and restore, with the note "Backups made with earlier versions can still be restored".
+- **Older share links:** the active links from `sharing.listUnowned()`, each with its expiry and Revoke. "No older links are open." when there are none.
+- **Sample data:** "Load the sample profiles".
+- **About.**
+
+**Tests.**
+- `HomeSettings.test.tsx` (11 tests):
+  - **two attachments of one email are separate rows**, imported separately into two records, then the details step;
+  - **"Already imported" per profile:** the kidney report imported for Ramesh shows "Already imported" (unticked) for him and not for Lakshmi;
+  - Home's passport card, visit, add, Ask box (to `/ask?q=`) and the three newest records;
+  - **Home shows only the four kinds:** the attention list is given extra kinds, including a "Is he still taking …?" item; only the four show, each with exactly one action and the right target; no medicine-status question, status button or review link;
+  - Lakshmi's Home has no attention section and no banner;
+  - assigning an email import to another profile;
+  - the Gmail line;
+  - the helpers;
+  - **older share links are listed from `sharing.listUnowned`** (never in a profile's links) **and can be revoked**;
+  - editing a profile's emergency contact, adding a doctor, switching profile;
+  - cloud reading, Gmail connect, the backup note and sample data.
+- Updated:
+  - `App.test.tsx`: Home's heading is the profile's name, `/` and `/settings` are real routes, and the route test now has a longer time limit since every route loads its own screen;
+  - `WelcomeScreen.test.tsx` and `ReviewChangesScreen.test.tsx` (Home's heading).
+- `npm run check` passes: 35 test files, 555 tests, build OK. Lint is clean.
+- **Browser check:** real-time screenshots of Home at 1280 and 390 px and Settings at 1280 px, after connecting Gmail, with no page errors. One change came from them: on phones the passport card and next visit now come first, as the spec lists them.
+
+**Differs from the spec, or chosen here:**
+- **Home's heading** is the patient's name; the tab and page title stay "Home".
+- **The legacy review action** opens the Passport at the batch review (`#legacy-review`) rather than a separate page.
+- **"Not ours: remove it"** in the assign dialog removes the record at once, like the Delete on the record page; the item says whose name was read.
+
+**Open questions:** none new.

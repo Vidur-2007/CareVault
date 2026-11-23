@@ -170,7 +170,7 @@ describe('review changes: the demo prescription', () => {
     expect(attentionBefore.map((a) => a.kind)).toEqual(['possible_duplicate_ingredient']);
 
     await router.navigate('/');
-    expect(await h1('Home')).toBeInTheDocument();
+    expect(await h1('Ramesh Iyer')).toBeInTheDocument();
     expect(screen.queryByText(/Telmisartan|Aspirin|Atorvastatin|review/i)).toBeNull();
   });
 

@@ -150,7 +150,7 @@ function LegacyBatch({ profile, entries }: { profile: Profile; entries: RoutineM
     { success: 'The earlier medicines are settled', errorPrefix: 'The answers could not be saved' },
   );
   return (
-    <Card as="section" aria-labelledby="legacy-title" tone="muted">
+    <Card as="section" id="legacy-review" aria-labelledby="legacy-title" tone="muted" className="scroll-mt-24">
       <h4 id="legacy-title" className="font-sans text-card-sm font-semibold">Choose the medicines {stillTakes(profile)}</h4>
       <p className="mt-2 text-ink-2">
         These came from the earlier version of CareVault. Tick the ones still taken; the others are marked as stopped. Until then they are
