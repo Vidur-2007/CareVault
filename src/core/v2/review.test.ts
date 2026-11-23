@@ -283,6 +283,18 @@ describe('deciding', () => {
     expect(lineRow(later.proposal, 'Aspirin 75 mg').decision).toBe('started');
   });
 
+  it('proposalFor with nothing changed writes nothing and notifies nobody (it is called on every notification)', async () => {
+    const { documentId } = await review(DEMO);
+    await services.routine.proposalFor(documentId);
+    await new Promise((r) => setTimeout(r, 0));
+    let heard = 0;
+    const stop = services.subscribe(() => (heard += 1));
+    for (let i = 0; i < 3; i += 1) await services.routine.proposalFor(documentId);
+    await new Promise((r) => setTimeout(r, 0));
+    stop();
+    expect(heard).toBe(0);
+  });
+
   it('dismiss, then proposalFor reopens the review', async () => {
     const { documentId, proposal } = await review(DEMO);
     expect((await services.routine.dismiss(proposal!.id)).status).toBe('dismissed');

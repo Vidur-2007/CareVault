@@ -44,7 +44,7 @@ type ProfileScoped<T> = CrudRepo<T> & { byProfile(profileId: ID): Promise<T[]> }
 
 export interface ReposV2 {
   db: CareVaultDbV2;
-  /** Runs `fn` as one atomic batch over every table and notifies subscribers once. */
+  /** Runs `fn` as one atomic batch over every table; notifies subscribers once if it wrote anything. */
   transaction<T>(fn: () => Promise<T>): Promise<T>;
   profiles: CrudRepo<Profile>;
   prescribers: ProfileScoped<Prescriber>;
@@ -120,13 +120,31 @@ export interface ReposV2 {
 export const revisionKey = (profileId: ID) => `routineRevision:${profileId}`;
 
 export function createReposV2(db: CareVaultDbV2, notifier: ChangeNotifier): ReposV2 {
-  async function write<T>(fn: () => Promise<T>): Promise<T> {
+  // Batches in which something was written. Subscribers hear only about those: a batch that
+  // only read (a review recomputed to the same result, a prescriber that already existed) must
+  // not notify, or a screen that re-reads on every notification would loop for ever.
+  const wrote = new WeakSet<object>();
+
+  async function batch<T>(fn: () => Promise<T>, writes: boolean): Promise<T> {
     // Already inside a batch: join it. The outermost batch notifies after it commits.
-    if (Dexie.currentTransaction) return fn();
-    const result = await db.transaction('rw', db.tables, fn);
-    notifier.notify();
+    if (Dexie.currentTransaction) {
+      if (writes) wrote.add(Dexie.currentTransaction);
+      return fn();
+    }
+    let changed = false;
+    const result = await db.transaction('rw', db.tables, async () => {
+      const tx = Dexie.currentTransaction!;
+      if (writes) wrote.add(tx);
+      try {
+        return await fn();
+      } finally {
+        changed = wrote.has(tx);
+      }
+    });
+    if (changed) notifier.notify();
     return result;
   }
+  const write = <T>(fn: () => Promise<T>) => batch(fn, true);
 
   function crud<T extends { id: ID }>(table: Table<T, ID>): CrudRepo<T> {
     return {
@@ -154,7 +172,7 @@ export function createReposV2(db: CareVaultDbV2, notifier: ChangeNotifier): Repo
 
   return {
     db,
-    transaction: write,
+    transaction: (fn) => batch(fn, false),
 
     profiles: crud(db.profiles),
     prescribers: scoped(db.prescribers),
