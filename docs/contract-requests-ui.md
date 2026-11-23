@@ -151,7 +151,25 @@ The core classifier returns `medicine_pack` when the page reads as a pack (a pro
 
 The UI shows "Matched: test name" from `matchedOn`. The values are only shown as an example in a comment (`['test name', 'doctor']`). Proposed fixed list, for mock and core alike: `'title' | 'tag' | 'test name' | 'facility' | 'doctor' | 'specialty' | 'kind' | 'date'`. It could stay `string[]`, with the list written in the comment. Not blocking.
 
+## v2-6. A date read from the document becomes "Date set by you" (raised 2026-11-23, step 4)
+
+**What happens.** `reading.read` stores only facts about the file on the record (pages, patient name and match); the date it read is a suggestion in the candidate. The core does the same on `feature/core`. So the date reaches the record only through `documents.update({ clinicalDate })`, which always sets `dateSource: 'user'`. After the add flow, every dated record says "Date set by you", even when the user simply accepted the date printed on it. `dateSource: 'document'` can then only come from seeds or migration. Overview §9.1 and UI spec 4.5 expect "Date from the document".
+
+**Proposed rule** (§9.1, no new method): `documents.update` with a `clinicalDate` equal to the value of that record's `document_date` evidence keeps `dateSource: 'document'` and marks that evidence `user_confirmed`. A different date sets `'user'` and marks the evidence `user_corrected`, as v2-4 proposes.
+
+**UI until then.** The details step sends the date the user accepts. The record then shows "Date set by you" for a date that was read from the document.
+
+## v2-7. "Yes, it is this profile's" after a patient-name mismatch (raised 2026-11-23, step 4) (clarification)
+
+On `mismatch`, UI spec 4.4 asks "Is it for <profile name>?". For *Yes*, the UI confirms the `patient_name` evidence with `reviewFields`. On `feature/core`, `assignProfile` to the same profile changes nothing, so that is the only way to record the answer. `patientMatch` stays `mismatch`: the name on the paper really is different. Is that intended?
+- If it is, the record page keeps showing "Name does not match", and the UI should also say "You confirmed it is <name>'s record" when the `patient_name` evidence is `user_confirmed`. The UI will do that.
+- If not, which call settles it?
+
 ## Notes, not requests
 
+- **Mock and core aligned in step 4:**
+  - `prescriptions.save` marks the saved lines' `extracted` values `user_confirmed`;
+  - `routine.add` with a `documentId` refuses only `needs_verification` or `unknown` values and confirms the `extracted` ones;
+  - both now behave as `feature/core` does.
 - **Missing sample PDFs.** `public/sample-docs/rx-rao-2026-11-13.pdf` (the demo prescription with "7? mg") and `thyroid-profile-lakshmi-2026-10-02.pdf` are not there yet. They are laptop A's per overview §10. Until they exist, the mock serves a generated placeholder PDF for them.
 - **`src/services/index.ts` builds the v1 services on import.** I checked this is safe: v1's `createRealServices()` only constructs its Dexie object, and Dexie opens lazily, so the v2 app does not open the v1 database. Laptop A should keep the v1 constructor free of database calls until the checkpoint.

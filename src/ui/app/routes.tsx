@@ -31,8 +31,6 @@ export interface PlannedRoute {
  */
 export const PLANNED_ROUTES: PlannedRoute[] = [
   { path: '/', title: 'Home', step: 9 },
-  { path: '/records/add', title: 'Add a record', step: 4 },
-  { path: '/records/:id/verify', title: 'Check the values', step: 4 },
   { path: '/records/:id/review', title: 'Review changes', step: 6 },
   { path: '/passport', title: 'Passport', step: 5 },
   { path: '/passport/medicines/:id', title: 'Medicine', step: 5 },
@@ -50,6 +48,8 @@ export const routes: RouteObject[] = [
     element: <AppShell />,
     children: [
       { path: '/records', element: screen(() => import('../screens/RecordsScreen'), (m) => m.RecordsScreen) },
+      { path: '/records/add', element: screen(() => import('../screens/AddRecordScreen'), (m) => m.AddRecordScreen) },
+      { path: '/records/:id/verify', element: screen(() => import('../screens/VerifyScreen'), (m) => m.VerifyScreen) },
       { path: '/records/:id', element: screen(() => import('../screens/RecordDetailScreen'), (m) => m.RecordDetailScreen) },
       ...PLANNED_ROUTES.filter((r) => !r.bare).map(placeholder),
       { path: '*', element: screen(() => import('../screens/NotFoundScreen'), (m) => m.NotFoundScreen) },

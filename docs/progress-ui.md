@@ -621,3 +621,101 @@ Components still typed on v1 (`DocumentCard`, `PassportView`, `MedicineRow`, `Ti
 - With a date range set, undated records are left out, as the mock and `RecordQuery` do. The screen says so.
 
 **Open questions:** none new.
+
+### Step 4: add a record and Check the values (2026-11-23)
+
+**Add a record (`/records/add`, 4.4)** is `screens/AddRecordScreen.tsx`, a single flow with its steps in `screens/records/add/`:
+1. **Capture:** "Take a photo" (`accept="image/*" capture="environment"`), "Choose a photo or PDF", "Import from Gmail", and tips for a clear photo.
+2. **Saved first:** `documents.add` runs before anything is read.
+   - A duplicate shows "This file is already in the records (added <date>)" with three choices:
+     - *Use the existing record* removes the new copy and opens the existing one;
+     - *Keep both* reads the new copy;
+     - *Cancel* removes the new copy.
+   - Otherwise: "Saved. Reading it on this device…"
+3. **Reading:** the v1 progress indicator, with "Enter by hand" always available.
+   - **Cloud consent:** `cloud_consent_required`, or a candidate with `needsCloud`, shows the consent panel: "This page is hard to read on the device. Send this one page to the cloud reader?" with *Send this page*, *Retake the photo* (photos only) and *Enter by hand*. Only *Send this page* calls `reading.read` with `allowCloud: true`, while the CloudNotice is shown.
+   - **Locked PDF:** `locked_pdf` goes to the details step with "This PDF is password-protected. It is saved; fill in the details by hand."
+   - **Other errors:** shown with Retry and Enter by hand.
+4. **Details:** kind, title, date on the document (it may be empty; the hint says what was read), doctor and facility.
+   - **Pages:** "Read 2 of 5 pages" is highlighted when not every page was read.
+   - **Doctor:** the name read is matched to the profile's doctors by surname. Otherwise "Add this doctor", prefilled with the name read, calls `profiles.addPrescriber` and selects the doctor.
+   - **Patient mismatch:** "This looks like a record for Sunita Rao. Is it for Ramesh Iyer?" must be answered before going on:
+     - *Yes* confirms the `patient_name` value;
+     - *It is for another profile* (choose a profile, then Move it) calls `assignProfile` and returns to Records;
+     - *Not ours* removes the record.
+5. **Check the values** when any value is flagged (`needs_verification`); otherwise "File it".
+6. **Prescriptions:** the lines with the checks applied ("Aspirin 75 mg"). *Save prescription* calls `prescriptions.save` and files the record. Then it shows either "Prescription saved. Some medicines differ from the current routine. Review them now?" (*Review changes* → `/records/:id/review`, *Not now*) or "…No differences with the current routine."
+7. **Pack photos:**
+   - "Add it to the routine?", with optional doses a day and how it is taken;
+   - *He takes it* (the wording follows the profile; "I take it" for "Myself"), *Not sure* and *Just keep the photo*;
+   - `routine.add` with source `from_pack` and the document. On `verification_required` the flow goes back to Check the values.
+- **Gmail (4.10):**
+  - *Connect Gmail* runs `gmail.connect` straight from the tap, under the CloudNotice "Reading your inbox for report attachments".
+  - The list has one row per PDF attachment, with subject, sender, received date and "Already imported".
+  - The chosen attachments are imported. Each one joins the flow at step 2, one after the other ("Continue with the next report").
+- **Leaving the flow** at any step after step 2 keeps the record as "Not yet filed".
+
+**Check the values (`/records/:id/verify` and inside the flow, 4.6)** is `screens/records/CheckValues.tsx`:
+- **Layout:** the original on one side (on top on phones, shorter there) and the values on the other.
+- **What is shown:** only `needs_verification` and `extracted` values, grouped by medicine line, with flagged values first. Checked values collapse into "N values already checked".
+- **Each value shows:**
+  - a plain title ("Strength not clear");
+  - the literal text read in a monospace chip (`7? mg`);
+  - the value as read, the reasons and the page;
+  - "Show on the original", which jumps the viewer to that page (`DocumentPreview` gained `jumpTo`).
+- **Actions:**
+  - *Correct*: a box that starts with the value read. For strengths it has a unit select, and the unit chosen also answers the unit value.
+  - *It is right*: disabled when nothing clear was read, with the reason.
+  - *Leave unknown*.
+  - *Retake the photo*: photos only.
+  - *These N look right*: per group, confirms only the values read cleanly, never a flagged one.
+- **Saving** sends every decision in one `reviewFields` call.
+- **On its own page,** it returns to the record, or to a safe in-app `return` path for the review gate in step 6.
+- **Record page:** it now shows "One value needs a check" with "Check the values" when something is flagged, or a quiet link when only values read cleanly remain. A confirmed mismatch shows "… · you confirmed it is Ramesh Iyer's record".
+
+**Retake the photo, keeping all decisions (request v2-2 is still open).**
+- The contract cannot replace a record's original, so the retake is saved as a new record. The earlier record's decisions are applied to the new photo's matching fields (`carryDecisions`):
+  - a typed correction and "Leave unknown" carry over as they were;
+  - "It is right" carries over only when the new photo reads the same value, because otherwise the value on screen is new.
+- **The earlier photo is never removed on its own,** following "the original file is always kept". The details step offers *Remove the earlier photo*.
+- With `documents.replaceOriginal` (v2-2), the decisions would stay on one record.
+
+**Mock and core aligned.** I compared with `feature/core` (`createRealServicesV2`) and changed the mock to match it:
+- `prescriptions.save` marks the saved lines' `extracted` values `user_confirmed`;
+- `routine.add` with a document refuses only `needs_verification` or `unknown` values, and confirms the `extracted` ones.
+
+**Tests.**
+- `AddRecordScreen.test.tsx` (21 tests), including what the step names:
+  - **duplicates:** use existing, keep both, cancel;
+  - **leaving the flow** keeps "Not yet filed";
+  - **the consent panel:** reading with the cloud only after "Send this page", and "Enter by hand";
+  - **a locked PDF;**
+  - **partial pages** ("Read 2 of 5 pages");
+  - **the demo prescription:** correcting "7? mg" to 75 mg, ending with "Aspirin 75 mg", every line verified, the record filed and the routine unchanged;
+  - **Leave unknown** keeps the line unverified, and *These N look right* leaves the flagged value alone;
+  - **"Check later";**
+  - **the pack ending and the gate;**
+  - **retake keeps earlier decisions;**
+  - **mismatch:** Yes, another profile, not ours;
+  - **Add this doctor;**
+  - **Gmail import;**
+  - **the verify page:** one `reviewFields` call, and the retake link.
+- `checkText.test.ts` (6 tests): titles, parsing corrections, applying checks to lines, carrying decisions, grouping, matching doctors.
+- `npm run check` passes: 29 test files, 488 tests, build OK. Lint is clean.
+- **Browser check:** real-time screenshots through the DevTools protocol at 1280 and 390 px of the details step and Check the values for the demo prescription, with no page errors. Three changes came from them:
+  - a repeated "The details" heading was removed;
+  - the per-group "These N look right" button and flagged-first order were added, because the demo shows 24 values;
+  - the original is shorter on phones.
+
+**Differs from the spec, or chosen here:**
+- **Pack detection:** a pack is "kind `other` with exactly one line" until request v2-3 adds a kind.
+- **Prescription lines:** they are shown, not edited, in the add flow. Corrections happen in Check the values, where the original is beside them.
+- **Filing:** "Save prescription" and the pack choices also file the record.
+- **Accepted read dates** become "Date set by you". Raised as request v2-6.
+- **Mismatch "Yes"** confirms the patient name value; `patientMatch` stays `mismatch`, and the screen shows the confirmation (request v2-7).
+- **Multiple Gmail imports** go through the flow one at a time.
+
+**Open questions:**
+- **v2-6:** the read-date source.
+- **v2-7:** the mismatch answer.
+- **v2-2:** replacing an original on retake.

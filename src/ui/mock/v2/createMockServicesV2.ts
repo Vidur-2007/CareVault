@@ -22,7 +22,7 @@ import { attentionItems, getProfile, livePassport } from './passport';
 import { GMAIL_ATTACHMENTS, attachmentDetails, readDocument } from './reading';
 import {
   applyEvidence, changeStatus, computeRows, createEntry, decide, evidenceOf, getMedicine, ingredientTotals,
-  lineVerified, nextVisit, noDifferences, rebuildLines, recordEvent, refreshProposal, revisionOf, undoEvent,
+  nextVisit, noDifferences, rebuildLines, recordEvent, refreshProposal, revisionOf, undoEvent,
 } from './routine';
 import { ask, byClinicalDate, searchRecords } from './search';
 import { emptyState, seedSample, type MockCtx, type MockState, type StoredProposal } from './state';
@@ -337,6 +337,14 @@ export function createMockServicesV2(options: MockV2Options = {}): CareVaultServ
           refreshProposal(ctx, existing);
           return { lines: state.lines.filter((l) => l.documentId === documentId).sort((a, b) => a.lineIndex - b.lineIndex), proposal: existing.proposal };
         }
+        // As in the core: values of the saved lines that were read cleanly ('extracted') and shown to
+        // the user without a flag count as reviewed. Flagged values still need their check.
+        const savedIndexes = new Set(input.map((l) => l.lineIndex));
+        for (const e of evidenceOf(ctx, documentId)) {
+          if (e.status === 'extracted' && e.lineIndex !== null && savedIndexes.has(e.lineIndex)) {
+            Object.assign(e, { status: 'user_confirmed', reviewedAt: ctx.now() });
+          }
+        }
         state.savedInput.set(documentId, input);
         const saved = rebuildLines(ctx, documentId);
         const id = ctx.newId();
@@ -368,11 +376,13 @@ export function createMockServicesV2(options: MockV2Options = {}): CareVaultServ
         let values = input;
         if (opts.documentId !== null) {
           getDoc(opts.documentId);
-          // The gate (9.2): values from a document must be verified first.
+          // The gate (9.2), as in the core: refused while a value of the document still needs
+          // verification or was left unknown. Values read cleanly and shown count as reviewed.
           const evidence = evidenceOf(ctx, opts.documentId);
-          if (on('verification') || !lineVerified(0, evidence)) {
+          if (on('verification') || evidence.some((e) => e.lineIndex !== null && (e.status === 'needs_verification' || e.status === 'unknown'))) {
             throw new T.ServiceError('verification_required', 'Check the highlighted value first.');
           }
+          for (const e of evidence) if (e.status === 'extracted') Object.assign(e, { status: 'user_confirmed', reviewedAt: ctx.now() });
           // Contract request v2-1 (provisional): reviewed evidence wins over the values passed in.
           const applied = applyEvidence({ ...input, lineIndex: 0, warnings: [] }, evidence);
           values = { productName: applied.productName, ingredients: applied.ingredients, form: applied.form, dosesPerDay: applied.dosesPerDay, instruction: applied.instruction };

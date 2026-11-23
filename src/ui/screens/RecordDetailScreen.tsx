@@ -2,17 +2,17 @@
 // match, pages read), edit, star, file and delete. Check the values and Review changes come in
 // steps 4 and 6.
 import { ArrowLeft, CircleCheck, Pencil, Star, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import type { DocumentRecord, Profile, ServiceError } from '../../contract/types';
+import type { DocumentRecord, Profile } from '../../contract/types';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ErrorPanel } from '../components/ErrorPanel';
 import { Pill } from '../components/Pill';
 import { SectionHeader } from '../components/SectionHeader';
 import { Skeleton, SkeletonList } from '../components/Skeleton';
-import { useProfile, useServices } from '../hooks/useContexts';
-import { toServiceError } from '../hooks/toServiceError';
+import { useProfile } from '../hooks/useContexts';
+import { useOriginal } from '../hooks/useOriginal';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useServiceAction } from '../hooks/useServiceAction';
 import { useServiceQuery } from '../hooks/useServiceQuery';
@@ -23,31 +23,13 @@ import { DeleteRecordDialog } from './records/DeleteRecordDialog';
 import { DocumentPreview } from './records/DocumentPreview';
 import { EditDetailsDialog } from './records/EditDetailsDialog';
 
-/**
- * The original file, fetched once per record. Not a subscribed query: other writes (a star, an
- * edit) must not fetch it again and restart the preview.
- */
-function useOriginal(id: string, enabled: boolean) {
-  const services = useServices();
-  const [state, setState] = useState<{ id: string; blob: Blob | null; error: ServiceError | null }>({ id: '', blob: null, error: null });
-  useEffect(() => {
-    if (!enabled) return;
-    let cancelled = false;
-    services.documents.file(id).then(
-      (f) => !cancelled && setState({ id, blob: f.blob, error: null }),
-      (err: unknown) => !cancelled && setState({ id, blob: null, error: toServiceError(err) }),
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [services, id, enabled]);
-  return state.id === id ? state : { blob: null, error: null };
-}
-
-function patientText(doc: DocumentRecord, profile: Profile): string {
+function patientText(doc: DocumentRecord, profile: Profile, confirmed: boolean): string {
   if (doc.patientMatch === 'not_found' || !doc.patientNameRead) return 'No patient name found on it';
   if (doc.patientMatch === 'match') return `${doc.patientNameRead} · matches ${profile.name}`;
-  return `${doc.patientNameRead} · does not match ${profile.name}`;
+  // Contract request v2-7: the name stays a mismatch; the user's answer is shown with it.
+  return confirmed
+    ? `${doc.patientNameRead} · does not match ${profile.name} · you confirmed it is ${profile.name}'s record`
+    : `${doc.patientNameRead} · does not match ${profile.name}`;
 }
 
 export function RecordDetailScreen() {
@@ -63,6 +45,9 @@ export function RecordDetailScreen() {
   const file = useOriginal(id, mine !== null);
   const isPrescription = mine?.kind === 'prescription';
   const lines = useServiceQuery((s) => s.prescriptions.lines(id), [id, isPrescription], { enabled: isPrescription });
+  const fields = useServiceQuery((s) => s.documents.fields(id), [id], { enabled: mine !== null });
+  const toCheck = (fields.data ?? []).filter((e) => e.status === 'needs_verification' || e.status === 'extracted');
+  const flagged = toCheck.filter((e) => e.status === 'needs_verification').length;
   useDocumentTitle(mine?.title ?? 'Record');
 
   const star = useServiceAction((s, on: boolean) => s.documents.update(id, { starred: on }), {
@@ -117,7 +102,7 @@ export function RecordDetailScreen() {
     ['Facility', d.facility ?? 'Not known'],
     ['Tests', d.testNames.length ? d.testNames.join(', ') : 'None listed'],
     ['Labels', d.tags.length ? d.tags.join(', ') : 'None'],
-    ['Patient on the document', patientText(d, profile!)],
+    ['Patient on the document', patientText(d, profile!, (fields.data ?? []).some((e) => e.field === 'patient_name' && e.status === 'user_confirmed'))],
     ...(pages ? [['Pages', pages] as [string, string]] : []),
     ['How it was added', `${sourceLabel(d)[0].toUpperCase()}${sourceLabel(d).slice(1)}, ${formatDate(d.addedAt)}`],
     ['Status', pending ? 'Not yet filed' : 'Filed'],
@@ -133,7 +118,7 @@ export function RecordDetailScreen() {
             <Pill tone="grey">{KIND_LABEL[d.kind]}</Pill>
             {pending ? <Pill tone="amber">Not yet filed</Pill> : <Pill tone="teal">Filed</Pill>}
             {!d.clinicalDate && <Pill tone="grey">Date not known</Pill>}
-            {d.patientMatch === 'mismatch' && <Pill tone="red">Name does not match</Pill>}
+            {d.patientMatch === 'mismatch' && !(fields.data ?? []).some((e) => e.field === 'patient_name' && e.status === 'user_confirmed') && <Pill tone="red">Name does not match</Pill>}
             {d.starred && <Pill tone="amber">Starred</Pill>}
           </div>
         </div>
@@ -166,6 +151,18 @@ export function RecordDetailScreen() {
         />
 
         <div className="flex min-w-0 flex-col gap-6">
+          {flagged > 0 ? (
+            <Card tone="action">
+              <h2 className="font-sans text-card-sm font-semibold">{flagged === 1 ? 'One value needs a check' : `${flagged} values need a check`}</h2>
+              <p className="mt-2 text-ink-2">Compare them with the original. Nothing unchecked reaches the routine or the passport.</p>
+              <Button className="mt-4" to={`/records/${d.id}/verify`}>Check the values</Button>
+            </Card>
+          ) : toCheck.length > 0 ? (
+            <Button variant="quiet" className="-ml-1 self-start" to={`/records/${d.id}/verify`}>
+              Check the values read automatically ({toCheck.length})
+            </Button>
+          ) : null}
+
           {pending && (
             <Card tone="action">
               <h2 className="font-sans text-card-sm font-semibold">Not yet filed</h2>
