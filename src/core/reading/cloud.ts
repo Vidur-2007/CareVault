@@ -104,8 +104,8 @@ export function candidateFromCloud(body: unknown): ExtractionCandidate {
   };
 }
 
-/** Sends one image to the server's cloud reader. */
-export async function extractInCloud(image: Blob, fetcher: typeof fetch = fetch): Promise<ExtractionCandidate> {
+/** Sends one image to the server's cloud reader, with the page of the document it shows when known. */
+export async function extractInCloud(image: Blob, fetcher: typeof fetch = fetch, page?: number): Promise<ExtractionCandidate> {
   if (image.size > MAX_IMAGE_BYTES) {
     throw new ServiceError('unsupported_file', 'This photo is too large for the cloud reader (over 6 MB).');
   }
@@ -114,7 +114,7 @@ export async function extractInCloud(image: Blob, fetcher: typeof fetch = fetch)
     response = await fetcher('/api/extract', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ imageBase64: await toBase64(image), mimeType: image.type || 'image/jpeg' }),
+      body: JSON.stringify({ imageBase64: await toBase64(image), mimeType: image.type || 'image/jpeg', ...(page === undefined ? {} : { page }) }),
     });
   } catch {
     throw new ServiceError('network', 'The cloud reader could not be reached. Check the connection and try again.');

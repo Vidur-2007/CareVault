@@ -57,18 +57,25 @@ export const RESPONSE_SCHEMA = {
   required: ['documentType', 'documentDate', 'prescriberName', 'rawText', 'lines'],
 } as const;
 
-/** Reads one image and returns the model's JSON answer, parsed. */
-export type Extractor = (imageBase64: string, mimeType: string) => Promise<unknown>;
+/** Reads one image and returns the model's JSON answer, parsed. `page` is the page of the document it shows, when known. */
+export type Extractor = (imageBase64: string, mimeType: string, page?: number) => Promise<unknown>;
+
+/** The user turn sent with the image. The system instruction never changes. */
+export function userPrompt(page?: number): string {
+  return page === undefined
+    ? 'Transcribe this image into the fields.'
+    : `Transcribe this image into the fields. It is page ${page} of the document.`;
+}
 
 export function createGeminiExtractor(apiKey: string, model: string): Extractor {
   const ai = new GoogleGenAI({ apiKey });
-  return async (imageBase64, mimeType) => {
+  return async (imageBase64, mimeType, page) => {
     const response = await ai.models.generateContent({
       model,
       contents: [
         {
           role: 'user',
-          parts: [{ inlineData: { mimeType, data: imageBase64 } }, { text: 'Transcribe this image into the fields.' }],
+          parts: [{ inlineData: { mimeType, data: imageBase64 } }, { text: userPrompt(page) }],
         },
       ],
       config: {
@@ -90,6 +97,8 @@ export function geminiExtractorFromEnv(env: NodeJS.ProcessEnv): Extractor | null
 const requestBody = z.object({
   imageBase64: z.string().min(1).regex(/^[A-Za-z0-9+/]+={0,2}$/),
   mimeType: z.string().regex(/^image\/(jpeg|png|webp|heic|heif)$/),
+  /** Which page of the document the image is, 1-based. Optional. */
+  page: z.number().int().min(1).max(500).optional(),
 });
 
 const answer = z.object({
@@ -111,12 +120,12 @@ export function extractRoutes(extractor: Extractor | null): Hono {
       if (!extractor) return c.json({ error: 'Cloud reading is not set up on this server.' }, 503);
       const parsed = requestBody.safeParse(await c.req.json().catch(() => null));
       if (!parsed.success) return c.json({ error: 'Send one image as base64 with its type.' }, 400);
-      const { imageBase64, mimeType } = parsed.data;
+      const { imageBase64, mimeType, page } = parsed.data;
       if (Math.floor((imageBase64.length * 3) / 4) > MAX_IMAGE_BYTES) return c.json({ error: 'The image is larger than 6 MB.' }, 413);
 
       let result: unknown;
       try {
-        result = await extractor(imageBase64, mimeType);
+        result = page === undefined ? await extractor(imageBase64, mimeType) : await extractor(imageBase64, mimeType, page);
       } catch {
         // The cause may quote the request, so it is not logged or returned.
         return c.json({ error: 'The cloud reader could not read this image.' }, 502);

@@ -166,7 +166,10 @@ export interface FieldEvidence {
   ingredientIndex: number | null;   // which ingredient within the line
   page: number | null;              // 1-based page the value was read from
   raw: string | null;               // the literal text read, e.g. '6?0 mg'
-  value: string | null;             // the current value: proposed, corrected or confirmed
+  value: string | null;             // the current value: proposed, corrected or confirmed. Formats:
+                                    //   medicine_name, instruction, patient_name: text; ingredient: the normalized
+                                    //   lowercase name; strength: a decimal number, no unit ('75', '0.5'); unit: a
+                                    //   DoseUnit; frequency: doses per day as a number ('1'); document_date: YYYY-MM-DD
   status: FieldStatus;
   reasons: string[];                // why it needs verification: 'Unclear digit', 'Missing unit'
   source: 'pdf_text' | 'ocr' | 'cloud' | 'user';
@@ -385,7 +388,8 @@ export interface RecordQuery {
 
 export interface RecordHit {
   document: DocumentRecord;
-  matchedOn: string[];              // ['test name', 'doctor']
+  matchedOn: string[];              // from: 'title' | 'tag' | 'test name' | 'facility' | 'doctor' | 'specialty'
+                                    //   | 'kind' | 'date' | 'starred' | 'medicine' (Ask only)
 }
 
 export interface AskAnswer {

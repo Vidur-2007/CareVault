@@ -324,6 +324,9 @@ describe('cloud client', () => {
     expect(url).toBe('/api/extract');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({ imageBase64: '/9j/AQID', mimeType: 'image/jpeg' });
+    // With a page, the page is sent too.
+    await extractInCloud(image, fetcher as unknown as typeof fetch, 2);
+    expect(JSON.parse((fetcher.mock.calls[1] as unknown as [string, RequestInit])[1].body as string)).toEqual({ imageBase64: '/9j/AQID', mimeType: 'image/jpeg', page: 2 });
     expect(candidate).toEqual({
       documentType: 'prescription',
       documentDate: '2026-10-28',

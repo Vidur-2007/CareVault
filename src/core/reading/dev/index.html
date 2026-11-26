@@ -3,32 +3,48 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CareVault OCR test</title>
+    <title>CareVault OCR benchmark</title>
     <style>
-      body { font-family: system-ui, sans-serif; margin: 16px; color: #1c2b2b; max-width: 900px; }
+      body { font-family: system-ui, sans-serif; margin: 16px; color: #1c2b2b; max-width: 1000px; }
       h1 { font-size: 20px; }
-      table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
-      th, td { border: 1px solid #c9d6d6; padding: 6px; text-align: left; vertical-align: top; }
-      pre { white-space: pre-wrap; background: #f2f6f6; padding: 8px; font-size: 12px; max-height: 240px; overflow: auto; }
+      table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 12px; }
+      th, td { border: 1px solid #c9d6d6; padding: 5px; text-align: left; vertical-align: top; }
+      tr.danger td { background: #fde7e7; }
+      pre { white-space: pre-wrap; background: #f2f6f6; padding: 8px; font-size: 12px; max-height: 320px; overflow: auto; }
       button, input { font-size: 16px; margin: 4px 0; }
+      textarea { width: 100%; height: 240px; font-size: 12px; }
       .note { color: #51605f; font-size: 13px; }
+      .wrap { overflow-x: auto; }
     </style>
   </head>
   <body>
-    <h1>CareVault OCR test (not part of the app)</h1>
+    <h1>CareVault OCR benchmark (not part of the app)</h1>
     <p class="note">
-      Choose pack photos or printed prescriptions. Each image is read by both engines on this device. Nothing is
-      uploaded; the engines and their models are downloaded on first use. When done, press "Copy results" and paste
-      them into docs/progress-core.md.
+      Runs both on-device engines (Tesseract.js, then PaddleOCR.js) over the synthetic packs and prescriptions. Each
+      image is read cold (a new engine; the first one also downloads its model) and warm. Nothing is uploaded. Keep the
+      screen on; the first run can take several minutes on a phone.
     </p>
-    <input id="files" type="file" accept="image/*" multiple />
+    <p>
+      <label>Phone <input id="device" placeholder="e.g. Pixel 6a, Chrome" /></label>
+    </p>
+    <div>
+      <button id="run" type="button">Run the benchmark set</button>
+      or your own photos (timed only): <input id="files" type="file" accept="image/*" multiple />
+    </div>
     <div><button id="copy" type="button">Copy results</button> <span id="status"></span></div>
-    <table>
-      <thead>
-        <tr><th>Image</th><th>Engine</th><th>Load (s)</th><th>Read (s)</th><th>Confidence</th><th>Product</th><th>Ingredients</th></tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
+    <p class="note">
+      Fields: right / right but asked to check / wrong but flagged / <strong>wrong and not flagged</strong> / not read.
+      Rows with a wrong value that is not flagged are red.
+    </p>
+    <div class="wrap">
+      <table>
+        <thead>
+          <tr><th>Image</th><th>Engine</th><th>Cold (s)</th><th>Warm (s)</th><th>Downloaded</th><th>Stored</th><th>Confidence</th><th>Fields</th><th>Cloud offered</th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <textarea id="markdown" hidden readonly></textarea>
     <div id="texts"></div>
     <script type="module" src="./devPage.ts"></script>
   </body>

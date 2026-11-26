@@ -18,6 +18,18 @@ Product lists change. Before the demo, check any product you plan to scan agains
 | `generic` | A generic name with its strength in the name ("Amlodipine 5 mg"). No brand, so nothing to look up. These are the generic lines of the sample case. | 7 |
 | `spec` | The project's own spec (overview section 10 and core spec section 6 give Dolo 650 as paracetamol 650 mg). See "Please check" below. | Dolo 650 |
 
+## Evidence levels
+
+Every entry in `table.json` also has an `evidence` level. Reading v2 uses it: only `manufacturer` entries may flag a strength as disagreeing with the reference; the others add a softer warning, and no entry is ever used to correct a value.
+
+| Level | Meaning | Entries |
+| --- | --- | --- |
+| `manufacturer` | The composition was read on the maker's own product list, label or prescribing information, or quoted from it and confirmed by a second page that was opened (see "Please check") | 59 |
+| `secondary` | Seen only through search results quoting the maker's page, which could not be opened | Telma 40, Telma H, Okacet 10 |
+| `project` | Taken from this project's own spec or sample case, not from a maker | Dolo 650, and the seven generic names of the sample case (Amlodipine 5 mg, Amlodipine 10 mg, Telmisartan 40 mg, Atorvastatin 10 mg, Rosuvastatin 10 mg, Metformin 500 mg, Pantoprazole 40 mg) |
+
+The generic names state their own composition, but no manufacturer source backs them, so they are `project` rather than `manufacturer`.
+
 ## Please check
 
 How each source was read matters, so here is where the evidence is weaker.

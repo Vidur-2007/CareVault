@@ -303,7 +303,10 @@ export interface FieldEvidence {
   ingredientIndex: number | null;   // which ingredient within the line
   page: number | null;              // 1-based page the value was read from
   raw: string | null;               // the literal text read, e.g. '6?0 mg'
-  value: string | null;             // the current value: proposed, corrected or confirmed
+  value: string | null;             // the current value: proposed, corrected or confirmed. Formats:
+                                    //   medicine_name, instruction, patient_name: text; ingredient: the normalized
+                                    //   lowercase name; strength: a decimal number, no unit ('75', '0.5'); unit: a
+                                    //   DoseUnit; frequency: doses per day as a number ('1'); document_date: YYYY-MM-DD
   status: FieldStatus;
   reasons: string[];                // why it needs verification: 'Unclear digit', 'Missing unit'
   source: 'pdf_text' | 'ocr' | 'cloud' | 'user';
@@ -522,7 +525,8 @@ export interface RecordQuery {
 
 export interface RecordHit {
   document: DocumentRecord;
-  matchedOn: string[];              // ['test name', 'doctor']
+  matchedOn: string[];              // from: 'title' | 'tag' | 'test name' | 'facility' | 'doctor' | 'specialty'
+                                    //   | 'kind' | 'date' | 'starred' | 'medicine' (Ask only)
 }
 
 export interface AskAnswer {
@@ -601,11 +605,14 @@ export interface CareVaultServices {
     list(profileId: T.ID): Promise<T.DocumentRecord[]>;           // newest clinical date first, undated last
     update(id: T.ID, patch: Partial<Pick<T.DocumentRecord,
       'kind' | 'title' | 'clinicalDate' | 'prescriberId' | 'facility' | 'tags' | 'testNames' | 'starred'>>):
-      Promise<T.DocumentRecord>;                                   // clinicalDate set here makes dateSource 'user'
+      Promise<T.DocumentRecord>;                                   // clinicalDate: the printed date (its document_date
+                                                                   // evidence) keeps dateSource 'document' and confirms it;
+                                                                   // another date makes it 'user' and corrects the evidence
     file(id: T.ID): Promise<T.DocumentRecord & { blob: Blob }>;    // also works for the shipped sample documents
     fileRecord(id: T.ID): Promise<T.DocumentRecord>;               // marks it 'filed'
     remove(id: T.ID): Promise<{ snapshotsMentioning: T.ID[]; activeShares: T.ShareLink[] }>;
-    assignProfile(id: T.ID, profileId: T.ID): Promise<T.DocumentRecord>;  // for unassigned email imports
+    assignProfile(id: T.ID, profileId: T.ID): Promise<T.DocumentRecord>;  // for unassigned email imports;
+                                                                          // confirms the patient_name evidence
     fields(id: T.ID): Promise<T.FieldEvidence[]>;
     reviewFields(id: T.ID, decisions: T.FieldDecision[]): Promise<T.FieldEvidence[]>;
   };
@@ -617,7 +624,9 @@ export interface CareVaultServices {
 
   prescriptions: {
     // Stores the prescription lines. Never changes the routine. Returns the proposal,
-    // or null when nothing differs from the routine.
+    // or null when nothing differs from the routine. The field evidence is the source of truth:
+    // flagged or unknown values keep their evidence value whatever `lines` says; an 'extracted'
+    // value becomes user_confirmed, or user_corrected with the line's value if it was edited.
     save(documentId: T.ID, prescriberId: T.ID, lines: T.ExtractedLine[]):
       Promise<{ lines: T.PrescriptionLine[]; proposal: T.RoutineProposal | null }>;
     lines(documentId: T.ID): Promise<T.PrescriptionLine[]>;
@@ -626,6 +635,7 @@ export interface CareVaultServices {
   routine: {
     list(profileId: T.ID): Promise<T.RoutineMedicine[]>;
     get(id: T.ID): Promise<T.RoutineMedicine>;
+    // Both histories are newest first (latest event at index 0).
     history(medicineId: T.ID): Promise<T.RoutineEvent[]>;
     profileHistory(profileId: T.ID): Promise<T.RoutineEvent[]>;
     revision(profileId: T.ID): Promise<number>;
@@ -730,7 +740,8 @@ Both sides use it for every date shown or computed: date lines, ages, "next visi
 - `documents.add` stores the original blob and a SHA-256 hash in one transaction **before** any reading, with state `pending_review`, `clinicalDate: null`, `dateSource: 'unknown'`. A reading failure never loses the original.
 - **Exact duplicates:** a file whose hash matches a document of the same profile, from any source, returns `duplicate`. The UI offers *Use the existing record* (remove the new one), *Keep both*, *Cancel* (remove the new one). Documents of other profiles never count.
 - **Dates:** `clinicalDate` comes only from the document text (day-first for numeric dates; manufacturing, expiry and birth dates are ignored) or from the user. Email receipt time is stored in `receivedAt`, never in `clinicalDate`. Undated records sort after dated ones and are shown in an "Undated" group.
-- **Patient match:** compare the name read with the profile name, ignoring case, initials, titles ("Mr", "Smt") and word order. A `mismatch` never files the record on its own: for email imports it becomes an `unassigned_import` attention item until the user assigns a profile or removes the record.
+- **Patient match:** compare the name read with the profile name, ignoring case, initials, titles ("Mr", "Smt") and word order. A `mismatch` never files the record on its own: for email imports it becomes an `unassigned_import` attention item until the user assigns a profile, removes the record, or confirms the patient name ("Yes, it is this profile's"). `patientMatch` stays `mismatch` after that answer, because the paper really carries another name; the confirmed `patient_name` evidence records the answer.
+- **Dates set by the user:** accepting the date read from the document keeps `dateSource: 'document'` and confirms its evidence; any other date sets `'user'` and corrects the evidence; clearing it marks the evidence `unknown`.
 - **Classification:** `kind`, `tags`, `testNames` and `facility` come from a deterministic keyword dictionary (core spec). A document may carry several tags. The user can edit all of them.
 - **Locked PDFs:** stored, and `reading.read` rejects with `locked_pdf`. The record can still be filed by hand.
 - **Pages:** text PDFs read every page. Scanned PDFs are OCR'd up to the page limit in the core spec; `pagesRead` and `pageCount` let the UI say "Read 2 of 5 pages".
@@ -747,6 +758,7 @@ Both sides use it for every date shown or computed: date lines, ages, "next visi
   - the field is a strength, unit or frequency read by OCR (these always need a look, whatever the confidence).
 - `reviewFields` applies `confirm` (→ `user_confirmed`), `correct` (→ `user_corrected`, new value) or `leave_unknown` (→ `unknown`). Re-reading a document keeps every human decision; it only adds or refreshes `extracted` and `needs_verification` evidence.
 - A prescription line is `verified` when all its critical fields are `user_confirmed` or `user_corrected`. A field left `unknown` keeps the line unverified.
+- **The evidence is the source of truth** for every critical field that has evidence. `prescriptions.save` rebuilds those fields from it: a flagged or unknown value cannot be replaced through `lines`; an `extracted` value shown in the line form becomes `user_confirmed`, or `user_corrected` with the line's value when the user edited it there. Fields with no evidence come from `lines`.
 - **The gate:** a routine write that takes values from a line (`started`, `started_new`, `same_medicine` followed by a change, or `routine.add` with a `documentId`) is refused with `verification_required` while the line is unverified. Saving the document, filing it and recording a question are never blocked.
 
 ### 9.3 Contextual review
@@ -921,7 +933,7 @@ Laptop A produces this file. The smudge must make the parser flag the strength.
 - Search "latest lipid profile" → Lipid profile, 2026-11-12, first result. Search for test "HbA1c" sorted newest → the HbA1c report, listed after dated records because it is undated.
 - Saving the demo prescription with Dr. Rao gives these proposal rows:
   - `changed` Telmisartan 40 → 80 mg, asked;
-  - `new` Aspirin, asked, `blockedByVerification: true` until the strength is verified;
+  - `new` Aspirin, asked, named `Aspirin 7? mg` as printed and `blockedByVerification: true` until the strength is verified; after the user corrects it to 75 mg, `Aspirin 75 mg` and not blocked (fixtures `proposalRows` and `proposalRowsAfterCheck`);
   - `same` Amlodipine 10 mg and Rosuvastatin 10 mg, not asked;
   - `not_mentioned` Atorvastatin 10 mg, asked (same prescriber);
   - `passiveNotMentionedCount: 3` (Metformin, Dolo 650, Crocin Advance 500).

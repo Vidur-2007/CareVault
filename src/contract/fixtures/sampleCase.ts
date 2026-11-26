@@ -4,6 +4,7 @@
 // are deterministic. Timestamps use India Standard Time (+05:30).
 
 import type {
+  DocumentKind,
   DocumentRecord,
   ExtractedLine,
   FieldEvidence,
@@ -14,6 +15,7 @@ import type {
   Prescriber,
   Profile,
   ProposalRowKind,
+  RecordQuery,
   RoutineEvent,
   RoutineMedicine,
   RoutineStatus,
@@ -442,7 +444,7 @@ interface ExpectedRow {
   /** The routine entry the row is about, or null for new. */
   medicineId: ID | null;
   asked: boolean;
-  /** Before the Aspirin strength has been checked. */
+  /** True while the line has a critical field that is not checked yet. */
   blockedByVerification: boolean;
 }
 
@@ -489,10 +491,12 @@ export const expected = {
     // Newest clinical date first; undated records after dated ones.
     documentIdsNewestFirst: [D.lipidProfile, D.raoLatest, D.ecg, D.raoPrevious, D.menon, D.hba1c],
     search: {
-      latestLipidProfile: { query: { text: 'lipid profile', sort: 'newest' as const, limit: 1 }, firstId: D.lipidProfile },
-      hba1cByTest: { query: { testName: 'HbA1c', sort: 'newest' as const }, ids: [D.hba1c] },
+      // Typed as RecordQuery so they can be passed straight to records.search.
+      latestLipidProfile: { query: { text: 'lipid profile', sort: 'newest', limit: 1 } as RecordQuery, firstId: D.lipidProfile },
+      hba1cByTest: { query: { testName: 'HbA1c', sort: 'newest' } as RecordQuery, ids: [D.hba1c] },
       cardiologyPrescriptions: {
-        query: { kinds: ['prescription' as const], prescriberId: P.rao, sort: 'newest' as const },
+        // `kinds` stays a plain, present array: callers pass it to records.search or spread it.
+        query: { kinds: ['prescription'] as DocumentKind[], prescriberId: P.rao as ID, sort: 'newest' as const },
         ids: [D.raoLatest, D.raoPrevious],
       },
     },
@@ -511,9 +515,18 @@ export const expected = {
     aspirinStrengthAsRead: '7? mg',
     verifiedLines: demoVerifiedLines,
     // Rows in core order: changed, new, not_mentioned, uncertain_match, same.
+    /** Right after saving, before the Aspirin strength is checked: Aspirin reads as printed and is blocked. */
     proposalRows: [
       { kind: 'changed', lineProductName: 'Telmisartan 80 mg', medicineId: M.telmisartan40, asked: true, blockedByVerification: false },
-      { kind: 'new', lineProductName: 'Aspirin 75 mg', medicineId: null, asked: true, blockedByVerification: true },
+      { kind: 'new', lineProductName: 'Aspirin 7? mg', medicineId: null, asked: true, blockedByVerification: true },
+      { kind: 'not_mentioned', lineProductName: null, medicineId: M.atorvastatin10, asked: true, blockedByVerification: false },
+      { kind: 'same', lineProductName: 'Amlodipine 10 mg', medicineId: M.amlodipine10, asked: false, blockedByVerification: false },
+      { kind: 'same', lineProductName: 'Rosuvastatin 10 mg', medicineId: M.rosuvastatin10, asked: false, blockedByVerification: false },
+    ] satisfies ExpectedRow[],
+    /** After the user corrects the Aspirin strength to 75 mg: the only row that changes is Aspirin's. */
+    proposalRowsAfterCheck: [
+      { kind: 'changed', lineProductName: 'Telmisartan 80 mg', medicineId: M.telmisartan40, asked: true, blockedByVerification: false },
+      { kind: 'new', lineProductName: 'Aspirin 75 mg', medicineId: null, asked: true, blockedByVerification: false },
       { kind: 'not_mentioned', lineProductName: null, medicineId: M.atorvastatin10, asked: true, blockedByVerification: false },
       { kind: 'same', lineProductName: 'Amlodipine 10 mg', medicineId: M.amlodipine10, asked: false, blockedByVerification: false },
       { kind: 'same', lineProductName: 'Rosuvastatin 10 mg', medicineId: M.rosuvastatin10, asked: false, blockedByVerification: false },
