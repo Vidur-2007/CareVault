@@ -1,4 +1,4 @@
-import { Calendar, Folder, Inbox, Pill } from 'lucide-react';
+import { Folder, House, IdCard, MessageCircleQuestion } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -9,10 +9,16 @@ export interface NavItem {
   end?: boolean;
 }
 
-/** The four sections (overview spec section 11). /dev/components is deliberately not listed. */
+/** The four sections (overview section 11). Settings is in the profile menu; /dev/components is not listed. */
 export const NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Review', icon: Inbox, end: true },
-  { to: '/medicines', label: 'Medicines', icon: Pill },
+  { to: '/', label: 'Home', icon: House, end: true },
   { to: '/records', label: 'Records', icon: Folder },
-  { to: '/visit', label: 'Visit', icon: Calendar },
+  { to: '/passport', label: 'Passport', icon: IdCard },
+  { to: '/ask', label: 'Ask', icon: MessageCircleQuestion },
 ];
+
+/** A record, medicine or snapshot belongs to one profile: after a switch, show its section instead. */
+export function sectionAfterSwitch(pathname: string): string {
+  const section = ['/records', '/passport'].find((s) => pathname.startsWith(`${s}/`));
+  return section ?? pathname;
+}

@@ -47,7 +47,7 @@ export function SegmentedControl<V extends string>({ label, options, value, onCh
             onKeyDown={(e) => onKeyDown(e, i)}
             className={cx(
               'inline-flex min-h-11 items-center gap-2 rounded-[9px] px-4 text-secondary font-semibold transition-colors',
-              selected ? 'bg-surface text-teal-ink shadow-card' : 'text-ink-3 hover:text-ink',
+              selected ? 'bg-surface text-teal-ink shadow-card' : 'text-ink-2 hover:text-ink',
             )}
           >
             {o.icon}

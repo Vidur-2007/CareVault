@@ -1,242 +1,195 @@
-// Medicine detail, UI spec 7.5: what it is, where it came from, its history, and status actions.
-import { Activity, ArrowLeft, CircleCheck, CirclePlus, Flag, PencilLine, Replace, TrendingUp, CircleStop } from 'lucide-react';
+// Medicine detail, UI spec 4.9: the entry's fields, source, prescriber and source record, its
+// history with before and after values, and edit, set status and Undo on the latest event.
+import { ArrowLeft, Pencil, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
-import type { MedicationEvent, Medicine } from '../../contract/legacy/types';
+import { Link, useNavigate, useParams } from 'react-router';
+import type { RoutineStatus } from '../../contract/types';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Dialog } from '../components/Dialog';
 import { ErrorPanel } from '../components/ErrorPanel';
-import { LineConfirmForm } from '../components/lineForm/LineConfirmForm';
-import { ingredientLine } from '../components/lineText';
 import { Pill } from '../components/Pill';
-import { CHECK_THIS, medicineStatusPill } from '../components/pills';
-import { SectionHeader } from '../components/SectionHeader';
-import { Sheet } from '../components/Sheet';
-import { Skeleton, SkeletonList } from '../components/Skeleton';
-import { TimelineItem } from '../components/TimelineItem';
-import { useProfile } from '../hooks/useContexts';
+import { SkeletonList } from '../components/Skeleton';
+import { toServiceError } from '../hooks/toServiceError';
+import { useProfile, useServices, useToast } from '../hooks/useContexts';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useServiceAction } from '../hooks/useServiceAction';
 import { useServiceQuery } from '../hooks/useServiceQuery';
 import { formatDate } from '../lib/format';
-import { DOCUMENT_TYPE_LABEL } from '../lib/labels';
-import { pronounsFor, verb } from '../lib/pronouns';
-import { EVENT_TITLE, dosesText, missingFromText, stoppedText } from './medicines/medicineText';
-import { useMedicineAnswers } from './medicines/useMedicineAnswers';
+import { MedicineForm } from './passport/MedicineForm';
+import { valuesFrom } from './passport/medicineValues';
+import { eventChanges, eventLabel, howTaken, ingredientsText, lastConfirmedText, sourceLabel, statusPill, undoable } from './passport/passportText';
 
-const EVENT_ICON: Record<MedicationEvent['type'], ReactNode> = {
-  added: <CirclePlus aria-hidden className="size-5" />,
-  confirmed: <CircleCheck aria-hidden className="size-5" />,
-  strength_changed: <TrendingUp aria-hidden className="size-5" />,
-  instruction_changed: <PencilLine aria-hidden className="size-5" />,
-  flagged_for_review: <Flag aria-hidden className="size-5" />,
-  marked_stopped: <CircleStop aria-hidden className="size-5" />,
-  replaced: <Replace aria-hidden className="size-5" />,
-};
+const STATUS_CHOICES: { status: RoutineStatus; label: string; confirm?: string }[] = [
+  { status: 'taking', label: 'Taking' },
+  { status: 'uncertain', label: 'Not sure' },
+  { status: 'not_started', label: 'Not started', confirm: 'It is kept for reference and not listed as current.' },
+  { status: 'stopped', label: 'Stopped', confirm: 'It stays in the history. You can change this later.' },
+];
 
 export function MedicineDetailScreen() {
   const { id = '' } = useParams();
   const { profile, prescribers } = useProfile();
-  const pid = profile!.id;
-  const pronouns = pronounsFor(profile!.relation);
-
-  const medicine = useServiceQuery((s) => s.medicines.get(id), [id]);
-  const history = useServiceQuery((s) => s.medicines.history(id), [id]);
-  const all = useServiceQuery((s) => s.medicines.list(pid), [pid]);
-  const documents = useServiceQuery((s) => s.documents.list(pid), [pid]);
-  const answers = useMedicineAnswers(pid);
-
-  const [confirmStop, setConfirmStop] = useState(false);
+  const services = useServices();
+  const toast = useToast();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
-  const confirm = useServiceAction((s, patch?: Parameters<typeof s.medicines.confirm>[1]) => s.medicines.confirm(id, patch), {
-    success: (m) => `${m.productName} is confirmed`,
+  const [confirming, setConfirming] = useState<(typeof STATUS_CHOICES)[number] | null>(null);
+  const [undoing, setUndoing] = useState(false);
+  const [undoRefused, setUndoRefused] = useState(false);
+
+  const med = useServiceQuery((s) => s.routine.get(id), [id]);
+  const mine = med.data && med.data.profileId === profile!.id ? med.data : null;
+  const history = useServiceQuery((s) => s.routine.history(id), [id], { enabled: mine !== null });
+  const sourceDoc = useServiceQuery((s) => s.documents.get(mine!.sourceDocumentId!), [mine?.sourceDocumentId], { enabled: !!mine?.sourceDocumentId });
+  const replacement = useServiceQuery((s) => s.routine.get(mine!.replacedByMedicineId!), [mine?.replacedByMedicineId], { enabled: !!mine?.replacedByMedicineId });
+  useDocumentTitle(mine?.productName ?? 'Medicine');
+
+  const update = useServiceAction((s, input: Parameters<typeof s.routine.update>[1]) => s.routine.update(id, input), {
+    success: 'Changes saved', errorPrefix: 'The changes could not be saved',
   });
-  const setStatus = useServiceAction((s, status: Medicine['status']) => s.medicines.setStatus(id, status), {
-    success: (m) => (m.status === 'stopped' ? `Marked ${m.productName} as stopped` : `${m.productName} is current again`),
+  const setStatus = useServiceAction((s, status: RoutineStatus) => s.routine.setStatus(id, status), {
+    success: (m) => `Marked as ${statusPill(m).label.toLowerCase()}`, errorPrefix: 'The status could not be changed',
   });
 
   const back = (
-    <Link to="/medicines" className="inline-flex min-h-11 items-center gap-2 font-semibold text-teal hover:text-teal-ink">
+    <Link to="/passport" className="inline-flex min-h-11 items-center gap-2 font-semibold text-teal hover:text-teal-ink">
       <ArrowLeft aria-hidden className="size-5" />
-      Medicines
+      Passport
     </Link>
   );
 
-  if (medicine.loading) {
-    return (
-      <div className="page-gutter py-6 md:py-12">
-        {back}
-        <Skeleton className="mt-4 h-11 w-2/3 max-w-md" />
-        <div className="mt-8">
-          <SkeletonList count={2} label="Loading the medicine" />
-        </div>
-      </div>
-    );
-  }
-
-  if (medicine.error || !medicine.data) {
-    const notFound = medicine.error?.code === 'not_found';
+  if (med.loading) return <div className="page-gutter py-6 md:py-12">{back}<div className="mt-8"><SkeletonList count={2} label="Loading the medicine" /></div></div>;
+  if (!mine) {
+    const notFound = !med.error || med.error.code === 'not_found';
     return (
       <div className="page-gutter py-6 md:py-12">
         {back}
         <h1 className="mt-2 text-page-sm md:text-page">{notFound ? 'Medicine not found' : 'Medicine'}</h1>
-        <ErrorPanel
-          className="mt-6"
-          title={notFound ? 'This medicine is not in the records' : 'This medicine could not be loaded'}
-          message={notFound ? 'It may have been removed, or the link is from another profile.' : medicine.error?.message}
-          onRetry={notFound ? undefined : medicine.reload}
-        />
+        <ErrorPanel className="mt-6" title={notFound ? 'This medicine is not in the routine' : 'This medicine could not be loaded'} message={notFound ? 'It may have been removed by an Undo, or the link is for another profile.' : med.error?.message} onRetry={notFound ? undefined : med.reload} />
       </div>
     );
   }
 
-  const m = medicine.data;
-  const prescriber = prescribers.find((p) => p.id === m.prescriberId) ?? null;
-  const source = documents.data?.find((d) => d.id === m.sourceDocumentId) ?? null;
-  const replacement = all.data?.find((x) => x.id === m.replacedByMedicineId) ?? null;
-  const docFor = (docId: string | null) => (docId ? documents.data?.find((d) => d.id === docId) ?? null : null);
-  const missing = m.status === 'needs_confirmation' ? missingFromText(m, prescribers, documents.data ?? []) : null;
-  const takesIt = `${pronouns.subject} ${verb(pronouns, 'take')}`;
-  const hidden = answers.isHidden(m);
+  const m = mine;
+  const events = history.data ?? [];
+  const latest = undoable(events);
+  const prescriber = prescribers.find((p) => p.id === m.prescriberId);
+  const sourceGone = sourceDoc.error?.code === 'not_found';
 
-  let actions: ReactNode = null;
-  if (m.status === 'found_at_home') {
-    actions = (
-      <>
-        <Button onClick={() => void confirm.run()} loading={confirm.pending}>
-          Confirm {takesIt} this
-        </Button>
-        <Button variant="secondary" onClick={() => setEditing(true)}>
-          Check the details
-        </Button>
-        <Button variant="secondary" onClick={() => setConfirmStop(true)}>
-          Mark as stopped
-        </Button>
-      </>
-    );
-  } else if (m.status === 'needs_confirmation' && !hidden) {
-    actions = (
-      <>
-        <Button variant="secondary" onClick={() => void answers.answer(m, 'still_taking')} disabled={answers.pending}>
-          Still taking
-        </Button>
-        <Button variant="secondary" onClick={() => setConfirmStop(true)} disabled={answers.pending}>
-          Stopped
-        </Button>
-        <Button onClick={() => void answers.answer(m, 'ask_doctor')} disabled={answers.pending}>
-          Ask the doctor
-        </Button>
-      </>
-    );
-  } else if (m.status === 'confirmed_current') {
-    actions = (
-      <>
-        <Button variant="secondary" icon={<PencilLine aria-hidden className="size-5" />} onClick={() => setEditing(true)}>
-          Edit details
-        </Button>
-        <Button variant="secondary" onClick={() => setConfirmStop(true)}>
-          Mark as stopped
-        </Button>
-      </>
-    );
-  } else if (m.status === 'stopped' && !replacement) {
-    actions = (
-      <Button variant="secondary" onClick={() => void setStatus.run('confirmed_current')} loading={setStatus.pending}>
-        {pronouns.subject === 'they' ? 'They take' : `${pronouns.subject[0].toUpperCase()}${pronouns.subject.slice(1)} takes`} it again
-      </Button>
-    );
-  }
+  const undo = async () => {
+    if (!latest) return;
+    setUndoing(true);
+    setUndoRefused(false);
+    try {
+      await services.routine.undo(latest.id);
+      toast.show({ message: `Undone: ${latest.detail}`, tone: 'success' });
+      if (latest.before === null) navigate('/passport'); // the entry was created by that event, so it is gone
+    } catch (err) {
+      const e = toServiceError(err);
+      if (e.code === 'stale') setUndoRefused(true);
+      else toast.show({ message: e.message, tone: 'error' });
+    } finally {
+      setUndoing(false);
+    }
+  };
 
-  const events = [...(history.data ?? [])].sort((a, b) => b.at.localeCompare(a.at));
+  const rows: [string, ReactNode][] = [
+    ['Active ingredients', ingredientsText(m)],
+    ['How it is taken', howTaken(m)],
+    ['Doses a day', m.dosesPerDay === null ? 'Not entered' : String(m.dosesPerDay)],
+    ['Source', sourceLabel(m, profile!)],
+    ['Doctor', prescriber ? [prescriber.name, prescriber.specialty].filter(Boolean).join(', ') : 'No doctor'],
+    ['Source record', !m.sourceDocumentId ? 'None' : sourceGone ? 'The source record was removed' : sourceDoc.data ? <Link to={`/records/${m.sourceDocumentId}`} className="inline-flex min-h-11 items-center font-semibold text-teal underline underline-offset-4">{sourceDoc.data.title}{sourceDoc.data.clinicalDate ? `, ${formatDate(sourceDoc.data.clinicalDate)}` : ''}</Link> : '…'],
+    ['Last confirmed', lastConfirmedText(m).replace('Last confirmed ', '')],
+    ...(m.replacedByMedicineId ? [['Replaced by', replacement.data ? <Link to={`/passport/medicines/${m.replacedByMedicineId}`} className="inline-flex min-h-11 items-center font-semibold text-teal underline underline-offset-4">{replacement.data.productName}</Link> : 'A newer entry'] as [string, ReactNode]] : []),
+  ];
 
   return (
     <div className="page-gutter py-6 md:py-12">
       {back}
-      <header className="mt-2">
-        <h1 className="text-page-sm md:text-page">{m.productName}</h1>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Pill spec={medicineStatusPill(m)} />
-          {m.fieldState === 'extracted' && <Pill spec={CHECK_THIS} />}
+      <header className="mt-2 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-page-sm md:text-page">{m.productName}</h1>
+          <div className="mt-3 flex flex-wrap gap-2"><Pill spec={statusPill(m)} /></div>
         </div>
+        <Button variant="secondary" icon={<Pencil aria-hidden className="size-5" />} onClick={() => setEditing(true)}>Edit</Button>
       </header>
 
       <div className="mt-8 grid gap-6 wide:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] wide:gap-8">
-        <Card as="section" aria-labelledby="details-title">
-          <h2 id="details-title" className="sr-only">
-            Details
-          </h2>
-          <dl className="grid gap-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
-            <dt className="text-secondary font-semibold text-ink-3">Ingredients</dt>
-            <dd className="text-ink">{ingredientLine(m.ingredients)}</dd>
-            <dt className="text-secondary font-semibold text-ink-3">How it is taken</dt>
-            <dd className="text-ink">{m.instruction || 'Not entered'}</dd>
-            <dt className="text-secondary font-semibold text-ink-3">How many per day</dt>
-            <dd className="text-ink">{dosesText(m).replace('Entered: ', '').replace('How often: ', '')}</dd>
-            <dt className="text-secondary font-semibold text-ink-3">Prescribed by</dt>
-            <dd className="text-ink">{prescriber ? `${prescriber.name}, ${prescriber.specialty.toLowerCase()}` : 'Not from a prescription'}</dd>
-            <dt className="text-secondary font-semibold text-ink-3">Source</dt>
-            <dd>
-              {source ? (
-                <Link to={`/records/${source.id}`} className="font-semibold text-teal underline decoration-2 underline-offset-4 hover:text-teal-ink">
-                  {source.title}, {formatDate(source.documentDate)}
-                </Link>
-              ) : (
-                <span className="text-ink">{m.origin === 'manual' ? 'Entered by hand' : 'No document kept'}</span>
-              )}
-            </dd>
-          </dl>
-          {m.status === 'stopped' && (
-            <p className="mt-5 rounded-panel bg-grey-tint px-4 py-3 text-ink-2">
-              {stoppedText(m, all.data ?? [])}
-              {replacement && (
-                <>
-                  {' '}
-                  <Link to={`/medicines/${replacement.id}`} className="font-semibold text-teal underline underline-offset-4">
-                    Open {replacement.productName}
-                  </Link>
-                </>
-              )}
-            </p>
-          )}
-          {missing && <p className="mt-5 rounded-panel bg-amber-tint px-4 py-3 text-amber-ink">This medicine is {missing}. CareVault does not assume it was stopped.</p>}
-          {hidden && <p className="mt-5 rounded-panel bg-teal-tint px-4 py-3 text-teal-ink">Your answer is being saved.</p>}
-          {actions && <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">{actions}</div>}
-        </Card>
+        <div className="flex flex-col gap-6">
+          <Card as="section" aria-labelledby="med-details-title">
+            <h2 id="med-details-title" className="font-sans text-card-sm font-semibold">Details</h2>
+            <dl className="mt-4 grid gap-3 sm:grid-cols-[11rem_minmax(0,1fr)]">
+              {rows.map(([label, value]) => (
+                <div key={label} className="contents">
+                  <dt className="text-secondary font-semibold text-ink-3">{label}</dt>
+                  <dd className="text-ink">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </Card>
+          <Card as="section" aria-labelledby="status-title">
+            <h2 id="status-title" className="font-sans text-card-sm font-semibold">What is true now?</h2>
+            <p className="mt-2 text-ink-2">This records what is taken. It is not advice to start or stop a medicine.</p>
+            <div role="group" aria-label="Status" className="mt-4 flex flex-wrap gap-2">
+              {STATUS_CHOICES.map((c) => (
+                <Button
+                  key={c.status}
+                  size="sm"
+                  variant={m.status === c.status ? 'primary' : 'secondary'}
+                  aria-pressed={m.status === c.status}
+                  disabled={setStatus.pending}
+                  onClick={() => {
+                    if (m.status === c.status) return;
+                    if (c.confirm) setConfirming(c);
+                    else void setStatus.run(c.status);
+                  }}
+                >
+                  {c.label}
+                </Button>
+              ))}
+            </div>
+          </Card>
+        </div>
 
-        <section aria-labelledby="history-title">
-          <SectionHeader id="history-title" title="History" level={2} />
-          {history.loading ? (
-            <SkeletonList count={2} lines={1} label="Loading the history" />
-          ) : history.error ? (
-            <ErrorPanel title="The history could not be loaded" message={history.error.message} onRetry={history.reload} />
-          ) : events.length === 0 ? (
-            <p className="text-ink-3">No history yet.</p>
-          ) : (
-            <ol>
-              {events.map((e, i) => {
-                const doc = docFor(e.documentId);
+        <section aria-labelledby="history-title" className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="history-title" className="font-sans text-card-sm font-semibold md:text-card">History</h2>
+            {latest && (
+              <Button size="sm" variant="secondary" icon={<Undo2 aria-hidden className="size-4" />} loading={undoing} onClick={() => void undo()}>
+                Undo the latest change
+              </Button>
+            )}
+          </div>
+          {undoRefused && (
+            <p role="alert" className="rounded-panel bg-amber-tint px-4 py-3 font-semibold text-amber-ink">A later change was made; see the history.</p>
+          )}
+          {history.loading ? <SkeletonList count={2} label="Loading the history" /> : (
+            <ol aria-label="History, newest first" className="flex flex-col gap-3">
+              {[...events].reverse().map((e) => {
+                const changes = eventChanges(e);
                 return (
-                  <TimelineItem
-                    key={e.id}
-                    date={formatDate(e.at)}
-                    title={EVENT_TITLE[e.type]}
-                    icon={EVENT_ICON[e.type] ?? <Activity aria-hidden className="size-5" />}
-                    detail={
-                      <>
-                        {e.detail}
-                        {doc && (
-                          <>
-                            {e.detail ? ' · ' : ''}
-                            <Link to={`/records/${doc.id}`} className="font-semibold text-teal underline underline-offset-4">
-                              {DOCUMENT_TYPE_LABEL[doc.type]}, {formatDate(doc.documentDate)}
-                            </Link>
-                          </>
-                        )}
-                      </>
-                    }
-                    last={i === events.length - 1}
-                  />
+                  <li key={e.id} className="rounded-panel border border-line bg-surface px-4 py-3">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="font-semibold text-ink">{eventLabel(e)}</span>
+                      <span className="text-secondary text-ink-3">{formatDate(e.at)}</span>
+                    </div>
+                    {e.detail && <p className="mt-1 text-ink-2">{e.detail}</p>}
+                    {changes.length > 0 && (
+                      <table className="mt-2 w-full text-secondary">
+                        <caption className="sr-only">Before and after</caption>
+                        <thead><tr className="text-left text-ink-3"><th scope="col" className="font-semibold">Field</th><th scope="col" className="font-semibold">Before</th><th scope="col" className="font-semibold">After</th></tr></thead>
+                        <tbody>
+                          {changes.map((c) => (
+                            <tr key={c.label}><th scope="row" className="pr-3 text-left font-normal text-ink-3">{c.label}</th><td className="pr-3 text-ink-2">{c.before}</td><td className="text-ink">{c.after}</td></tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </li>
                 );
               })}
             </ol>
@@ -244,43 +197,31 @@ export function MedicineDetailScreen() {
         </section>
       </div>
 
+      <Dialog open={editing} onClose={() => setEditing(false)} title={`Edit ${m.productName}`} description="The change is recorded in the history." size="lg">
+        {editing && (
+          <MedicineForm
+            initial={valuesFrom(m)}
+            submitLabel="Save the changes"
+            pending={update.pending}
+            onCancel={() => setEditing(false)}
+            onSubmit={async (input) => {
+              if (await update.run(input)) setEditing(false);
+            }}
+          />
+        )}
+      </Dialog>
       <ConfirmDialog
-        open={confirmStop}
-        title={`Mark ${m.productName} as stopped?`}
-        message="You can change this later."
-        confirmLabel="Mark as stopped"
+        open={confirming !== null}
+        title={confirming ? `Mark ${m.productName} as ${confirming.label.toLowerCase()}?` : ''}
+        message={confirming?.confirm}
+        confirmLabel={confirming ? `Mark as ${confirming.label.toLowerCase()}` : 'Confirm'}
         pending={setStatus.pending}
-        onCancel={() => setConfirmStop(false)}
+        onCancel={() => setConfirming(null)}
         onConfirm={async () => {
-          if (m.status === 'needs_confirmation') {
-            setConfirmStop(false);
-            void answers.answer(m, 'stopped');
-            return;
-          }
-          await setStatus.run('stopped');
-          setConfirmStop(false);
+          if (confirming) await setStatus.run(confirming.status);
+          setConfirming(null);
         }}
       />
-
-      <Sheet open={editing} onClose={() => setEditing(false)} title={m.status === 'found_at_home' ? 'Check the details' : 'Edit details'}>
-        <LineConfirmForm
-          source={undefined}
-          line={{ ...m, warnings: [] }}
-          fromExtraction={m.fieldState === 'extracted'}
-          pendingAction={confirm.pending ? 'save' : null}
-          actions={[{ id: 'save', label: m.status === 'found_at_home' ? `Save and confirm ${takesIt} it` : 'Save changes' }]}
-          onSubmit={async (line) => {
-            const saved = await confirm.run({
-              productName: line.productName,
-              ingredients: line.ingredients,
-              form: line.form,
-              dosesPerDay: line.dosesPerDay,
-              instruction: line.instruction,
-            });
-            if (saved) setEditing(false);
-          }}
-        />
-      </Sheet>
     </div>
   );
 }

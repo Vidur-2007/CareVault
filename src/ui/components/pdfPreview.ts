@@ -28,15 +28,20 @@ export async function openPdf(file: Blob): Promise<PDFDocumentProxy> {
   return pdfjs.getDocument({ data }).promise;
 }
 
-/** Renders one page into the canvas, fitted to `width` CSS pixels times `zoom`. */
+/**
+ * Renders one page into the canvas, fitted to `width` CSS pixels times `zoom`. Aborting `signal`
+ * cancels the render, so a new render can use the same canvas (pdf.js allows one at a time).
+ */
 export async function renderPdfPage(
   pdf: PDFDocumentProxy,
   pageNumber: number,
   canvas: HTMLCanvasElement,
   width: number,
   zoom = 1,
+  signal?: AbortSignal,
 ): Promise<void> {
   const page = await pdf.getPage(pageNumber);
+  if (signal?.aborted) return;
   const base = page.getViewport({ scale: 1 });
   const scale = (width / base.width) * zoom;
   const ratio = globalThis.devicePixelRatio || 1;
@@ -45,5 +50,12 @@ export async function renderPdfPage(
   canvas.height = Math.floor(viewport.height);
   canvas.style.width = `${Math.floor(viewport.width / ratio)}px`;
   canvas.style.height = `${Math.floor(viewport.height / ratio)}px`;
-  await page.render({ canvas, viewport }).promise;
+  const task = page.render({ canvas, viewport });
+  const cancel = () => task.cancel();
+  signal?.addEventListener('abort', cancel, { once: true });
+  try {
+    await task.promise;
+  } finally {
+    signal?.removeEventListener('abort', cancel);
+  }
 }

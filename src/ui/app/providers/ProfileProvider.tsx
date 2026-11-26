@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { ProfileContext } from '../contexts';
 import type { ProfileContextValue } from '../contexts';
 import { useServiceQuery } from '../../hooks/useServiceQuery';
+import { todayForProfile } from '../../lib/today';
 
 const STORAGE_KEY = 'cv.profileId';
 
@@ -41,7 +42,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     () => ({
       profile,
       profiles,
+      // Keyed on the profile id, so another profile's prescribers are never returned.
       prescribers: prescribersQuery.data ?? [],
+      today: todayForProfile(profile?.id ?? null),
       loading: profilesQuery.loading,
       error: profilesQuery.error,
       setProfileId,
