@@ -1,27 +1,27 @@
-import { Check, ChevronDown, Plus } from 'lucide-react';
+import { Check, ChevronDown, Plus, Settings } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import type { Profile } from '../../contract/legacy/types';
+import type { Profile } from '../../contract/types';
 import { cx } from '../lib/cx';
 import { ageFrom, initials } from '../lib/format';
+import { todayForProfile } from '../lib/today';
 
 export interface ProfileSwitcherProps {
   profiles: Profile[];
   current: Profile | null;
   onSelect: (id: string) => void;
-  /** Today, for the age shown next to the relation. */
-  today: string;
   /** Phone: avatar and relation only. */
   compact?: boolean;
 }
 
-function subtitle(p: Profile, today: string) {
-  const age = ageFrom(p.birthYear, today);
+/** The age uses each profile's own "today" (todayFor): the sample profiles keep their calendar. */
+function subtitle(p: Profile) {
+  const age = ageFrom(p.birthYear, todayForProfile(p.id));
   return age === null ? p.relation : `${p.relation}, ${age}`;
 }
 
-/** Shows whose records are open, and switches between profiles. */
-export function ProfileSwitcher({ profiles, current, onSelect, today, compact = false }: ProfileSwitcherProps) {
+/** The profile menu (UI spec section 3): whose records are open, switch profile, add a profile, Settings. */
+export function ProfileSwitcher({ profiles, current, onSelect, compact = false }: ProfileSwitcherProps) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -56,7 +56,7 @@ export function ProfileSwitcher({ profiles, current, onSelect, today, compact = 
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls={menuId}
-        aria-label={`Profile: ${current.name}, ${subtitle(current, today)}. Switch profile`}
+        aria-label={`Profile: ${current.name}, ${subtitle(current)}. Profile menu`}
         onClick={() => setOpen((o) => !o)}
         className="flex min-h-12 items-center gap-3 rounded-full border border-line bg-surface py-1.5 pl-1.5 pr-4 text-left hover:bg-surface-muted"
       >
@@ -70,7 +70,7 @@ export function ProfileSwitcher({ profiles, current, onSelect, today, compact = 
         ) : (
           <span aria-hidden className="flex items-baseline gap-2">
             <span className="font-semibold text-ink">{current.name}</span>
-            <span className="text-secondary text-ink-3">{subtitle(current, today)}</span>
+            <span className="text-secondary text-ink-3">{subtitle(current)}</span>
           </span>
         )}
         {!compact && <ChevronDown aria-hidden className={cx('size-4 text-ink-3 transition-transform', open && 'rotate-180')} />}
@@ -78,7 +78,7 @@ export function ProfileSwitcher({ profiles, current, onSelect, today, compact = 
 
       {open && (
         <div id={menuId} className="absolute right-0 top-full z-40 mt-2 w-72 rounded-panel border border-line bg-surface p-2 shadow-overlay">
-          <p className="px-3 pb-1 pt-2 text-secondary font-semibold text-ink-3">Profiles on this device</p>
+          <p className="px-3 pb-1 pt-2 text-secondary font-semibold text-ink-3">Switch profile</p>
           <ul>
             {profiles.map((p) => (
               <li key={p.id}>
@@ -94,21 +94,31 @@ export function ProfileSwitcher({ profiles, current, onSelect, today, compact = 
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold text-ink">{p.name}</span>
-                    <span className="block text-secondary text-ink-3">{subtitle(p, today)}</span>
+                    <span className="block text-secondary text-ink-3">{subtitle(p)}</span>
                   </span>
                   {p.id === current.id && <Check aria-label="Current profile" className="size-5 text-teal" />}
                 </button>
               </li>
             ))}
           </ul>
-          <Link
-            to="/settings#add-profile"
-            onClick={() => setOpen(false)}
-            className="mt-1 flex min-h-12 items-center gap-2 rounded-button border-t border-line px-3 font-semibold text-teal hover:bg-surface-muted"
-          >
-            <Plus aria-hidden className="size-5" />
-            Add a profile
-          </Link>
+          <div className="mt-1 border-t border-line pt-1">
+            <Link
+              to="/welcome?new=profile"
+              onClick={() => setOpen(false)}
+              className="flex min-h-12 items-center gap-2 rounded-button px-3 font-semibold text-teal hover:bg-surface-muted"
+            >
+              <Plus aria-hidden className="size-5" />
+              Add a profile
+            </Link>
+            <Link
+              to="/settings"
+              onClick={() => setOpen(false)}
+              className="flex min-h-12 items-center gap-2 rounded-button px-3 font-semibold text-ink-2 hover:bg-surface-muted"
+            >
+              <Settings aria-hidden className="size-5" />
+              Settings
+            </Link>
+          </div>
         </div>
       )}
     </div>

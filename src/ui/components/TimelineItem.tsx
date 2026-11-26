@@ -1,14 +1,17 @@
-import { Activity, ClipboardList, FileText, FlaskConical, Hospital } from 'lucide-react';
+import { Activity, Award, ClipboardList, FileText, FlaskConical, Hospital, ScanLine, Stethoscope } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import type { DocumentType } from '../../contract/legacy/types';
+import type { DocumentKind } from '../../contract/types';
 import { cx } from '../lib/cx';
 
-const TYPE_ICON: Record<DocumentType, ReactNode> = {
+const TYPE_ICON: Record<DocumentKind, ReactNode> = {
   prescription: <ClipboardList aria-hidden className="size-5" />,
   lab_report: <FlaskConical aria-hidden className="size-5" />,
+  imaging: <ScanLine aria-hidden className="size-5" />,
   test: <Activity aria-hidden className="size-5" />,
   discharge_summary: <Hospital aria-hidden className="size-5" />,
+  consultation: <Stethoscope aria-hidden className="size-5" />,
+  certificate: <Award aria-hidden className="size-5" />,
   other: <FileText aria-hidden className="size-5" />,
 };
 
@@ -18,7 +21,7 @@ export interface TimelineItemProps {
   title: ReactNode;
   detail?: ReactNode;
   /** Icon by document type, or pass a custom icon. */
-  type?: DocumentType;
+  type?: DocumentKind;
   icon?: ReactNode;
   to?: string;
   last?: boolean;
@@ -34,7 +37,7 @@ export function TimelineItem({ date, title, detail, type, icon, to, last = false
       </span>
       <div className="min-w-0 flex-1 pt-1">
         <p className="text-secondary text-ink-3">{date}</p>
-        <p className={cx('font-semibold text-ink')}>{to ? <Link to={to} className="hover:underline">{title}</Link> : title}</p>
+        <p className={cx('font-semibold text-ink')}>{to ? <Link to={to} className="inline-flex min-h-11 items-center hover:underline">{title}</Link> : title}</p>
         {detail && <p className="mt-0.5 text-secondary text-ink-2">{detail}</p>}
       </div>
     </li>

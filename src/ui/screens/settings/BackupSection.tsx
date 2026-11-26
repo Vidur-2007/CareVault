@@ -1,4 +1,4 @@
-// Encrypted backup (UI spec 7.11): export with a passphrase, import with a passphrase after confirming
+// Encrypted backup (UI spec 4.13, as in v1): export with a passphrase, import with a passphrase after confirming
 // that it replaces everything on this device.
 import { Download, Upload } from 'lucide-react';
 import { useState } from 'react';
@@ -108,6 +108,7 @@ export function BackupSection({ today }: { today: string }) {
         Everything lives only on this device. A backup is one encrypted file you can keep elsewhere, for example on a computer. It can only be
         opened with its passphrase.
       </p>
+      <p className="mt-2 text-ink-2">Backups made with earlier versions can still be restored.</p>
 
       <div className="mt-6 grid gap-8 wide:grid-cols-2">
         <form noValidate onSubmit={doExport} aria-labelledby="export-title" className="flex flex-col gap-4">

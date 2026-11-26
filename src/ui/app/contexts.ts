@@ -1,7 +1,7 @@
 // React contexts shared by the UI. Providers live in src/ui/app/providers, hooks in src/ui/hooks.
 import { createContext } from 'react';
-import type { CareVaultServices } from '../../contract/legacy/services';
-import type { Prescriber, Profile } from '../../contract/legacy/types';
+import type { CareVaultServices } from '../../contract/services';
+import type { ISODate, Prescriber, Profile } from '../../contract/types';
 
 export const ServicesContext = createContext<CareVaultServices | null>(null);
 
@@ -9,6 +9,8 @@ export interface ProfileContextValue {
   profile: Profile | null;
   profiles: Profile[];
   prescribers: Prescriber[];
+  /** todayFor(profile, device date): the date every screen uses (UI spec section 3). */
+  today: ISODate;
   loading: boolean;
   error: Error | null;
   setProfileId: (id: string) => void;
